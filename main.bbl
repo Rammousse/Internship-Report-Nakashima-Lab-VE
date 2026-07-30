@@ -1,0 +1,155 @@
+\begin{thebibliography}{10}
+
+\bibitem{isct2024merger}
+{Institute of Science Tokyo}.
+\newblock Establishment of institute of science tokyo: Merging tokyo tech and
+  tmdu.
+\newblock University official website, 2024.
+\newblock Referenced for the historical context of the institutional merger.
+
+\bibitem{nakashimalab_website}
+Motomu Nakashima.
+\newblock Motomu nakashima laboratory - research projects.
+\newblock
+  \url{https://www.hei.sc.e.titech.ac.jp/nakashima_labo/motomu/index2.html},
+  2015.
+\newblock Archive of biomechanics research projects.
+
+\bibitem{nakashima2007swum}
+Motomu Nakashima, Ken Satou, and Yasufumi Miura.
+\newblock Development of swimming human simulation model considering rigid body
+  dynamics and unsteady fluid force for whole body.
+\newblock {\em Journal of Fluid Science and Technology}, 2(1):56--67, 2007.
+
+\bibitem{chung2014swimming}
+Changhyun Chung and Motomu Nakashima.
+\newblock Swimming humanoid robot “swumanoid” as an experimental platform
+  for research of human swimming.
+\newblock {\em Journal of Robotics and Mechatronics}, 26(2):265--266, 2014.
+
+\bibitem{nakashima2016realization}
+Motomu Nakashima and Kosuke Kuwahara.
+\newblock Realization and swimming performance of the breaststroke by a
+  swimming humanoid robot.
+\newblock {\em ROBOMECH Journal}, 3(10), 2016.
+
+\bibitem{chung2013free}
+Changhyun Chung and Motomu Nakashima.
+\newblock Free swimming of the swimming humanoid robot for the crawl stroke.
+\newblock {\em Journal of Aero Aqua Bio-mechanisms}, 3(1):118--126, 2013.
+
+\bibitem{swumsuit2005}
+{SWUM Developer Team}.
+\newblock {\em Swumsuit Manual for version 2.2.0}, 2005.
+
+\bibitem{nakashima2012optimizing}
+Motomu Nakashima, Shun Maeda, Takahiro Miwa, and Hiroshi Ichikawa.
+\newblock Optimizing simulation of the arm stroke in crawl swimming considering
+  muscle strength characteristics of athlete swimmers.
+\newblock {\em Journal of Biomechanical Science and Engineering},
+  7(2):102--117, 2012.
+
+\bibitem{m5stack_atoms3}
+{M5Stack Technology Co., Ltd.}
+\newblock {\em ATOM S3 Official Documentation}, 2023.
+\newblock Referenced for the technical specifications of the AtomS3
+  microcontroller.
+
+\bibitem{m5stack_atoms3r}
+{M5Stack Technology Co., Ltd.}
+\newblock {\em ATOM S3R Official Documentation}, 2023.
+\newblock Referenced for the technical specifications and memory architecture
+  of the AtomS3R microcontroller.
+
+\bibitem{chartjs}
+{Chart.js Contributors}.
+\newblock Chart.js --- open source html5 charting library.
+\newblock \url{https://www.chartjs.org/docs/latest/}, 2024.
+\newblock Library used for the real-time RSSI plot.
+
+\bibitem{threejs}
+{Three.js Authors}.
+\newblock Three.js --- javascript 3d library.
+\newblock \url{https://threejs.org/docs/}, 2024.
+\newblock Library used to render the 3D IMU avatar.
+
+\bibitem{dynamixel_x_manual}
+{ROBOTIS Co., Ltd.}
+\newblock {\em Dynamixel X-Series Control Table and Protocol 2.0 (e-Manual)},
+  2023.
+\newblock Referenced for the angle-to-tick conversion (4096 resolution), the
+  half-duplex RS-485 bus and the SyncWrite / SyncRead instructions.
+
+\bibitem{whatwg_sse}
+{WHATWG}.
+\newblock Html living standard --- server-sent events.
+\newblock \url{https://html.spec.whatwg.org/multipage/server-sent-events.html},
+  2024.
+\newblock Specification of the one-way EventSource stream used for real-time
+  telemetry.
+
+\bibitem{dynamixel_xm540w150}
+{ROBOTIS Co., Ltd.}
+\newblock {\em DYNAMIXEL XM540-W150-R (e-Manual)}, 2023.
+\newblock Non-waterproof substitute motor used on the first bench,
+  protocol-identical to the XW series.
+
+\bibitem{m5stack_atomic485}
+{M5Stack Technology Co., Ltd.}
+\newblock {\em ATOMIC RS485 Base --- Documentation}, 2023.
+\newblock Initial RS-485 base (SP3485 transceiver, automatic direction).
+
+\bibitem{sp3485}
+{MaxLinear (Sipex)}.
+\newblock {\em SP3485 --- +3.3V Low Power Half-Duplex RS-485 Transceiver,
+  Datasheet}, 2015.
+\newblock Transceiver used by the Atomic RS485 base (10 Mbps raw rate).
+
+\bibitem{max3485}
+{Analog Devices (Maxim Integrated)}.
+\newblock {\em MAX3483/ MAX3485/ MAX3486/ MAX3488/ MAX3490/ MAX3491 --- 3.3V,
+  10~Mbps RS-485/RS-422 Transceivers, Datasheet}, 2014.
+\newblock 3.3 V transceiver with an explicit DE direction pin, chosen for the
+  new main board.
+
+\bibitem{pololu_d24v10f5}
+{Pololu Corporation}.
+\newblock {\em Pololu 5V, 1A Step-Down Voltage Regulator D24V10F5}, 2023.
+\newblock 5 V converter initially considered for the logic power supply.
+
+\bibitem{mp2307}
+{Monolithic Power Systems (MPS)}.
+\newblock {\em MP2307 --- 3A, 23V, 340kHz Synchronous Rectified Step-Down
+  Converter, Datasheet}, 2020.
+\newblock Core of the compact DC-DC step-down module (4R7 inductor marking)
+  powering the AtomS3R at 5 V.
+
+\bibitem{m5stack_atom_hub_proto}
+{M5Stack Technology Co., Ltd.}
+\newblock {\em ATOM HUB Proto Kit --- Documentation}, 2023.
+\newblock Prototyping enclosure for integrating the main board.
+
+\bibitem{esp32s3_uart}
+{Espressif Systems}.
+\newblock {\em ESP32-S3 Technical Reference Manual --- UART Controller (RS-485
+  Half-Duplex Mode)}, 2024.
+\newblock Hardware RS-485 half-duplex mode: automatic toggling of the direction
+  line via RTS.
+
+\bibitem{dynamixel_xw540t140}
+{ROBOTIS Co., Ltd.}
+\newblock {\em DYNAMIXEL XW540-T140-R (e-Manual)}, 2023.
+\newblock Waterproof (IP68) servomotor; corresponds in particular to the
+  analyzed shoulder joint.
+
+\bibitem{dynamixel_xw540t260}
+{ROBOTIS Co., Ltd.}
+\newblock {\em DYNAMIXEL XW540-T260-R (e-Manual)}, 2023.
+\newblock High-torque waterproof (IP68) servomotor of the SWUMANOID.
+
+\bibitem{dynamixel_xw430t200}
+{ROBOTIS Co., Ltd.}
+\newblock {\em DYNAMIXEL XW430-T200-R (e-Manual)}, 2023.
+\newblock Waterproof (IP68) servomotor for the SWUMANOID's distal joints.
+
+\end{thebibliography}
