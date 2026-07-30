@@ -45,7 +45,8 @@
 \clearpage
 \pagestyle{empty} % No page number for the abstract
 \section*{Abstract}
-\textit{This page is dedicated to the internship abstract. To be completed at the very end. It should generally present the context, objectives, methods used, and main results.}
+\textit{This report presents the work conducted during my M1 internship at the Nakashima Laboratory, focusing on the SWUMANOID humanoid swimming robot project. The objective of my internship was to improve and modernize the command and control system of the robot. To achieve this, I designed and assembled a new main control board and developed a web interface. This new architecture allows the operator to communicate directly with the robot and provides real-time access to all critical telemetry and status information during pool experiments. Successfully implementing these upgrades required including the seamless integration of motion files, the mathematical interpolation of joint trajectories for smooth swimming, the optimization of the communication baud rate, and the extraction of spatial orientation angles using IMU data. Ultimately, these contributions have established a highly reliable and responsive experimental platform for future hydrodynamic research.
+}
 
 % ==========================================
 %             TABLE OF CONTENTS
@@ -523,8 +524,6 @@ M(N, F, K) = \left\lfloor \frac{F}{K} \right\rfloor \times (16 + 10N)
 
 To estimate the memory load in the most demanding scenario (full recording with no selection and no subsampling), take $N = 21$ motors, clocked at 72 Hz over 2 seconds, so $F = 144$ frames, recording every frame ($K = 1$):
 \begin{align*}
-M(21, 144, 1) &= \left\lfloor \frac{144}{1} \right\rfloor \times (16 + 10 \times 21) \\
-M(21, 144, 1) &= 144 \times 226 \\
 M(21, 144, 1) &= 32544 \text{ bytes}
 \end{align*}
 
@@ -547,8 +546,8 @@ Then I tried to get closer to the robot's real configuration by adding a second 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{schemas/First_test_schema_xm_xw_motors.png}
-    \caption{Diagram of the first test circuit. 12\,V star power supply (strict common ground), RS-485 data daisy-chained from the AtomS3R to the XM540 then the XW430, and 120\,$\Omega$ termination resistors placed at both ends of the differential bus (A/B).}
+    \includegraphics[width=0.7\textwidth]{schemas/First_test_schema_xm_xw_motors.png}
+    \caption{Diagram of the first test circuit.}
     \label{fig:premier_circuit}
 \end{figure}
 
@@ -579,7 +578,7 @@ When the components arrived, I assembled the new control board. Its three active
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.31\textwidth}
+    \begin{subfigure}[b]{0.27\textwidth}
         \centering
         \includegraphics[width=\textwidth]{composants/atoms3r_pinout.png}
         \caption{AtomS3R (ESP32-S3, exposed PORT.A / GPIO).}
@@ -706,6 +705,8 @@ As Figure~\ref{fig:sweep_motors} shows, the control frequency drops from 191.6\,
 
 This result raises an immediate question: is this degradation an inevitable price of logging, or does it appear only in a particular regime? To settle it, I reran the exact same campaign (same motors, same $K = 3$, same $N = 1 \ldots 5$ sweep) at lower setpoint rates: 36, 72 and 100\,Hz. The conclusion is clear-cut, and perfectly readable in Figure~\ref{fig:lowfreq} as in Table~\ref{tab:matrix}: \textbf{at low frequency, the number of logged motors has no measurable effect on the control frequency}. At 36\,Hz, the five configurations all give 35.9--36.0\,Hz; at 100\,Hz, they stay grouped around 96\,Hz, whether we log one motor or five. The contrast with the 200\,Hz regime is striking, and it is the key to the interpretation.
 
+\iffalse
+
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.48\textwidth}
@@ -750,6 +751,64 @@ This result raises an immediate question: is this degradation an inevitable pric
     \caption{Sweep of the number of logged motors at 100 Hz.}
     \label{fig:highfreq}
 \end{figure}
+
+\fi
+
+\begin{figure}[H]
+    \centering
+    % Première ligne : 36 Hz
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphiques/log_36Hz_1mot.png}
+        \caption{36\,Hz, $N = 1$ $\rightarrow$ 35.9 Hz.}
+        \label{fig:log_36Hz_1mot}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphiques/log_36Hz_5mot.png}
+        \caption{36\,Hz, $N = 5$ $\rightarrow$ 35.9 Hz.}
+        \label{fig:log_36Hz_5mot}
+    \end{subfigure}
+    
+    \vspace{0.3cm} % Espace vertical entre les lignes de graphiques
+
+    % Deuxième ligne : 72 Hz
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphiques/log_72Hz_1mot.png}
+        \caption{72\,Hz, $N = 1$ $\rightarrow$ 68.0 Hz.}
+        \label{fig:log_72Hz_1mot}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphiques/log_72Hz_5mot.png}
+        \caption{72\,Hz, $N = 5$ $\rightarrow$ 69.5 Hz.}
+        \label{fig:log_72Hz_5mot}
+    \end{subfigure}
+
+    \vspace{0.3cm}
+
+    % Troisième ligne : 100 Hz
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphiques/log_100Hz_1mot.png}
+        \caption{100\,Hz, $N = 1$ $\rightarrow$ 96.2 Hz.}
+        \label{fig:log_100Hz_1mot}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphiques/log_100Hz_5mot.png}
+        \caption{100\,Hz, $N = 5$ $\rightarrow$ 95.9 Hz.}
+        \label{fig:log_100Hz_5mot}
+    \end{subfigure}
+
+    \caption{Sweep of the number of logged motors at different frequencies.}
+    \label{fig:motor_logging_sweep}
+\end{figure}
+
 
 \begin{table}[H]
 \centering
@@ -1298,7 +1357,7 @@ so that the estimate starts flat, with the yaw arbitrarily fixed to zero (a pure
 \paragraph{Quaternion complementary filter.}
 At each sample, the gyroscope prediction~\eqref{eq:gyro_step} is realigned on gravity \emph{only when} the measurement is judged quasi-static, that is $\big|\,\lVert\mathbf{a}\rVert-1\,\big|\le\tau$ with $\tau=0{.}25\,g$ (this test discards the self-acceleration phases, where gravity is masked). The predicted vertical in the body frame is
 \begin{equation}
-\hat{\mathbf{g}}_{\text{pred}}=q_{\text{raw}}^{-1}\otimes\mathbf{z}_{\mathcal W}\otimes q_{\text{raw}},
+\hat{\mathbf{g}}_{\text{pred}}=q_{\text{raw}}^{-1}\otimes\mathbf{z}_{\mathcal W}\otimes q_{\text{raw}}
 \end{equation}
 and we build the correction quaternion $\delta q_c$ realizing the shortest arc from the \emph{measured} vertical $\hat{\mathbf{u}}$ to the \emph{predicted} vertical $\hat{\mathbf{g}}_{\text{pred}}$ (same form as in~\eqref{eq:seed}). This correction is applied only \emph{partially}, by spherical interpolation from the identity with a gain $\mu$, then composed on the right and renormalized:
 \begin{equation}
