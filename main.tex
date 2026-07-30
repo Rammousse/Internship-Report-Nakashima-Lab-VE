@@ -1361,8 +1361,8 @@ At each sample, the gyroscope prediction~\eqref{eq:gyro_step} is realigned on gr
 \end{equation}
 and we build the correction quaternion $\delta q_c$ realizing the shortest arc from the \emph{measured} vertical $\hat{\mathbf{u}}$ to the \emph{predicted} vertical $\hat{\mathbf{g}}_{\text{pred}}$ (same form as in~\eqref{eq:seed}). This correction is applied only \emph{partially}, by spherical interpolation from the identity with a gain $\mu$, then composed on the right and renormalized:
 \begin{equation}
-q_{\text{raw}}\leftarrow\frac{q_{\text{raw}}\otimes\operatorname{Slerp}\!\big(\mathbf{1},\,\delta q_c,\,\mu\big)}{\big\lVert\,\cdot\,\big\rVert},
-\qquad \mu=0{.}02 .
+q_{\text{raw}}\leftarrow\frac{q_{\text{raw}}\otimes\operatorname{Slerp}\!\big(\mathbf{1},\,\delta q_c,\,\mu\big)}{\big\lVert\,q_{\text{raw}}\otimes\operatorname{Slerp}\!\big(\mathbf{1},\,\delta q_c,\,\mu\big)\,\big\rVert},
+\qquad \mu=0{.}02
 \label{eq:complementary}
 \end{equation}
 The pair \eqref{eq:gyro_step}--\eqref{eq:complementary} thus realizes a \emph{complementary filter}: the gyroscope handles the high frequencies, while the accelerometer corrects, at low gain $\mu$, the low-frequency drift of roll and pitch. This structure is functionally analogous to a Madgwick filter (correction by gradient descent of a gravity-alignment error), here formulated in an explicit geometric form. The yaw, with no absolute reference, is never corrected and comes solely from the integration~\eqref{eq:gyro_step}: it is \emph{reversible}, which guarantees that a return to the initial physical pose brings the estimate back to the same state. The resulting quaternion $q_{\text{raw}}$ represents the board's absolute attitude, $\mathcal B\rightarrow\mathcal W$.
