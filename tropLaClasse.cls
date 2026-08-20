@@ -14,7 +14,7 @@
 \RequirePackage{fancyhdr}
 \RequirePackage{url}
 \RequirePackage[hidelinks]{hyperref}
-\RequirePackage[left=3cm,right=3cm,top=3cm,bottom=5cm]{geometry}
+\RequirePackage[left=2cm,right=2cm,top=2cm,bottom=3cm]{geometry}
 \RequirePackage[most]{tcolorbox}
 \RequirePackage{listings}
 \RequirePackage{xcolor}
