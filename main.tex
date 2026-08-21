@@ -229,7 +229,7 @@ When I arrived, the previous system was heavily limited: a frequency locked at 7
 
 \subsubsection*{Running and optimizing the pool experiments}
 
-Software only means something once it survives a real environment. So the second half of my mission plays out in the field, during pool experiments, about twice a week. These sessions follow a strict protocol to yield reliable data. Figure \ref{fig:pool_experiment} shows the robot going into the water during one of these tests.
+To test the software that we developped during each week we put the robot in a real environment, so the second half of my mission plays out in the field, during pool experiments, about twice a week. These sessions follow a strict protocol to yield reliable data. Figure \ref{fig:pool_experiment} shows the robot going into the water during one of these tests.
 
 \begin{figure}[H]
     \centering
@@ -256,7 +256,7 @@ During the experiment itself, I operate the SWUMANOID from the web interface I b
 
 When I joined the SWUMANOID project, my first big task was to take over and develop the firmware of the robot's embedded controller. On my first day, YANADORI-san and NAGATA-san handed me a set of requirements written during their earlier pool experiments, where they had spotted several critical weaknesses in the old control system.
 
-That previous system was hurting the quality of the research. The control frequency was locked at 72 Hz, which produced mechanical jerks; the Wi-Fi link dropped packets frequently; and logging went to an SD card that turned out to be far too slow, sometimes stalling the main code. My overall goal, then, was to improve the robot's performance, stability, and user interface.
+That previous system was hurting the quality of the research. The control frequency was locked at 72 Hz, which produced mechanical jerks, the Wi-Fi link dropped packets frequently and logging went to an SD card that turned out to be far too slow, sometimes stalling the main code. My overall goal, then, was to improve the robot's performance, stability, and user interface.
 
 The embedded system is built on the \textbf{PlatformIO} build system, using the \textbf{Arduino} framework on an \textbf{Espressif ESP32-S3} microcontroller. The firmware handles real-time control of the servomotors over a Dynamixel RS-485 bus, inertial measurement, wireless communication through a Wi-Fi access point, and the reading of motion trajectories.
 
@@ -353,7 +353,7 @@ Since the requirements stressed that the Wi-Fi is often unstable, I started with
 In practice, the firmware samples the RSSI at the same rate as the real-time telemetry stream ($\approx 20$~Hz) and exposes it to the client, which feeds a thirty-second sliding window. The resulting curve (Figure~\ref{fig:evolution_rssi}, right) gives us a measurable, usable quantity to map the link range around the pool.
 
 
-In the same spirit, I added a three-dimensional avatar of the robot to the interface, rendered in the browser with the Three.js library~\cite{threejs}. This mannequin reproduces, in real time, the spatial orientation measured by the inertial unit (IMU) housed in the AtomS3R's head. The operator gets an immediate read of the SWUMANOID's attitude (roll, pitch, yaw) without having to interpret raw numbers (Figure~\ref{fig:imu_avatar}). The full inertial signal processing chain and the orientation angle computation have their own section (see \ref{sec:calcul_angle}); here I only want to underline the role of this visualization as a qualitative control instrument during an experiment.
+In the same spirit, I added a three-dimensional avatar of the robot to the interface, rendered in the browser with the Three.js library~\cite{threejs}. This mannequin reproduces, in real time, the spatial orientation measured by the inertial unit (IMU) housed in the AtomS3R's head. The operator gets an immediate read of the SWUMANOID's attitude (roll, pitch, yaw) without having to interpret raw numbers (Figure~\ref{fig:imu_avatar}). The full inertial signal processing chain and the orientation angle computation have their own section (see \ref{sec:calcul_angle}), but here I only want to underline the role of this visualization as a qualitative control instrument during an experiment.
 
 \begin{figure}[H]
     \centering
@@ -362,7 +362,7 @@ In the same spirit, I added a three-dimensional avatar of the robot to the inter
     \label{fig:imu_avatar}
 \end{figure}
 
-I also added the ability to upload motion files straight from SWAM (.dat), converted on the fly during upload, to make the web control interface fully standalone, smooth and secure. The trajectory conversion logic runs entirely on the client (JavaScript); I ported it from the MATLAB code used previously and provided by Iroki-san.\\
+I also added the ability to upload motion files straight from SWAM (.dat), converted on the fly during upload, to make the web control interface fully standalone, smooth and secure. The trajectory conversion logic runs entirely on the client (JavaScript) and I ported it from the MATLAB code used previously and provided by Iroki-san.\\
 
 More precisely, when parsing the \texttt{.dat} file in JavaScript, each joint angle is converted to Dynamixel ticks using the affine formula of the X-series motors~\cite{dynamixel_x_manual}:
 \begin{equation}
@@ -475,7 +475,7 @@ In parallel, I wanted to add the ability to record the telemetry logs (position,
 \label{tab:telemetry}
 \end{table}
 
-This choice radically decouples the writing (a plain memory copy of fixed-width fields, with no allocation or text formatting) from the heavy processing, pushed offline onto the client computer. It also cleanly separates the command (\texttt{cmd}, known every cycle without touching the bus) from the position measurement (\texttt{pos}, acquired only when the motor actually answered). When a position could never be read, the field gets a sentinel value ($\mathtt{0x80000000}$) rather than zero; on the browser side, the matching CSV cell is then left empty, which prevents a zero or a leftover from the previous run from being mistaken for a valid physical reading.
+This choice radically decouples the writing (a plain memory copy of fixed-width fields, with no allocation or text formatting) from the heavy processing, pushed offline onto the client computer. It also cleanly separates the command (\texttt{cmd}, known every cycle without touching the bus) from the position measurement (\texttt{pos}, acquired only when the motor actually answered). When a position could never be read, the field gets a sentinel value ($\mathtt{0x80000000}$) rather than zero. On the browser side, the matching CSV cell is then left empty, which prevents a zero or a leftover from the previous run from being mistaken for a valid physical reading.
 
 \paragraph{The physical latency challenge:}
 But during the first attempts to record all 21 motors, a second major obstacle appeared: a drastic drop in the control frequency. The robot's motion became strongly jerky, causing frame loss and a degraded swimming dynamic. This was not a memory saturation problem, but the physical limit of the RS-485 communication bus running in \textit{half-duplex}.
@@ -507,11 +507,11 @@ To resolve this timing conflict between motion smoothness and data acquisition, 
     \label{fig:svg_selection}
 \end{figure}
 
-Concretely, the SVG diagram (Figure~\ref{fig:svg_selection}) turns each joint into a clickable dot whose color reflects the motor state (selected, online, offline); the list of chosen IDs becomes the \texttt{read\_ids} parameter passed to the firmware when the motion starts. On the embedded side, a round-robin cursor walks this list and, at each acquisition cycle, issues a single \texttt{SyncRead} over a subgroup of $G$ motors (\textit{Motors polled per cycle}). Since the command is logged every control period without any bus access, only the measured part is subject to this sequencing. The result is an effective refresh rate, per motor, of the position measurement:
+Concretely, the SVG diagram (Figure~\ref{fig:svg_selection}) turns each joint into a clickable dot whose color reflects the motor state (selected, online, offline). The list of chosen IDs becomes the \texttt{read\_ids} parameter passed to the firmware when the motion starts. On the embedded side, a round-robin cursor walks this list and, at each acquisition cycle, issues a single \texttt{SyncRead} over a subgroup of $G$ motors (\textit{Motors polled per cycle}). Since the command is logged every control period without any bus access, only the measured part is subject to this sequencing. The result is an effective refresh rate, per motor, of the position measurement:
 \begin{equation}
 f_{fb} = \frac{f_{play}}{K \times \left\lceil \dfrac{N}{G} \right\rceil}
 \end{equation}
-where $f_{play}$ is the playback rate, $K$ the sampling stride (\textit{feedback every $K$ frames}), $N$ the number of selected motors and $G$ the subgroup width polled per cycle. These two levers (spatial via $N$, temporal via $K$ and $G$) let us explicitly trade telemetry density against motion smoothness, without ever letting the bus occupancy exceed $t_{bus} \approx G \times 4~\text{ms}$. Finally, so that the very first recorded frame always holds a truly measured position (and not a sentinel value), a single complete read of all selected motors is done just before playback starts; run only once, outside the real-time loop, it does not affect the control rate.
+where $f_{play}$ is the playback rate, $K$ the sampling stride (\textit{feedback every $K$ frames}), $N$ the number of selected motors and $G$ the subgroup width polled per cycle. These two levers (spatial via $N$, temporal via $K$ and $G$) let us explicitly trade telemetry density against motion smoothness, without ever letting the bus occupancy exceed $t_{bus} \approx G \times 4~\text{ms}$. Finally, so that the very first recorded frame always holds a truly measured position (and not a sentinel value), a single complete read of all selected motors is done just before playback starts, run only once, outside the real-time loop, it does not affect the control rate.
 
 
 This setup is rounded out by monitoring the safety-critical quantities. The current drawn by each motor, its supply voltage and its temperature are read during the bus scan (previous section), the total bus current is aggregated continuously, and the microcontroller's own temperature is shown permanently on the dashboard. These indicators let us catch a joint overheating or an abnormal current draw early, the classic symptom of a mechanical jam under hydrodynamic load, before it turns into a hardware failure.
@@ -563,8 +563,8 @@ It is this automatic circuit, not the chip, that caps the throughput. It is tune
 \paragraph{Toward explicit control of the bus direction.}
 The fix, then, is not to look for a "faster" chip, since the SP3485 is already enough. It is to use a board where the DE direction pin is driven \emph{explicitly} by the microcontroller, instead of being left to a too-slow automaton. So I drew up the list of parts to order to replace the \textit{Atomic RS485} base:
 \begin{itemize}
-    \item a 3.3\,V RS-485 transceiver board that exposes its DE pin (a MAX3485-type chip~\cite{max3485} / SP3485, 10\,Mbps);
-    \item a 12--16\,V $\rightarrow$ 5\,V step-down converter to power the AtomS3R (the removed base had handled this conversion until then), first considered as a Pololu D24V10F5 module~\cite{pololu_d24v10f5}, finally built with a compact MP2307-based module~\cite{mp2307};
+    \item a 3.3\,V RS-485 transceiver board that exposes its DE pin (a MAX3485-type chip~\cite{max3485} / SP3485, 10\,Mbps).
+    \item a 12--16\,V $\rightarrow$ 5\,V step-down converter to power the AtomS3R (the removed base had handled this conversion until then), first considered as a Pololu D24V10F5 module~\cite{pololu_d24v10f5}, finally built with a compact MP2307-based module~\cite{mp2307}.
     \item an \textit{ATOM HUB Proto} prototyping case~\cite{m5stack_atom_hub_proto} to integrate everything cleanly.
 \end{itemize}
 
@@ -602,7 +602,7 @@ When the components arrived, I assembled the new control board. Its three active
     \label{fig:composants}
 \end{figure}
 
-To make this new circuit safe, the power architecture was carefully split into a power stage and a logic stage. A 16\,V power line, straight from the generator, supplies the Dynamixel motors; it is also fed into the DC-DC step-down converter (a compact module recognizable by its inductor marked "4R7", based on the MP2307~\cite{mp2307}), which turns it into a stable 5\,V for the AtomS3R. The logic stage of the MAX3485 module is powered at 3.3\,V directly from the AtomS3R, to keep the signal levels perfectly aligned. Finally, all the grounds (GND) of the generator, the converter, the AtomS3R and the MAX3485 were tied together for a strict common ground, with no reference drift.
+To make this new circuit safe, the power architecture was carefully split into a power stage and a logic stage. A 16\,V power line, straight from the generator, supplies the Dynamixel motors, it is also fed into the DC-DC step-down converter (a compact module recognizable by its inductor marked "4R7", based on the MP2307~\cite{mp2307}), which turns it into a stable 5\,V for the AtomS3R. The logic stage of the MAX3485 module is powered at 3.3\,V directly from the AtomS3R, to keep the signal levels perfectly aligned. Finally, all the grounds (GND) of the generator, the converter, the AtomS3R and the MAX3485 were tied together for a strict common ground, with no reference drift.
 
 \paragraph{SWUMANOID motor configuration.}
 Above all, this new architecture made it possible, for the first time, to test the \emph{real} motors of the robot. The SWUMANOID is driven by three families of XW-series Dynamixel servomotors (waterproof, IP68 rating), spread across the body according to their torque needs (Figure~\ref{fig:swumanoid_map}): XW540-T140-R and XW540-T260-R~\cite{dynamixel_xw540t140,dynamixel_xw540t260} for the most heavily loaded joints, and XW430-T200-R~\cite{dynamixel_xw430t200} for the distal joints. It is precisely the waterproof nature of the XW series that justifies its use on a swimming robot, and that explains why the first bench (previous section) had to fall back on a non-waterproof XM motor as a substitute.
@@ -644,15 +644,15 @@ To validate the hardware architecture under representative conditions, I built a
 
 Within this circuit (Figure~\ref{fig:circuit_test}), the ESP32-S3 architecture allows flexible pin routing. I configured the communication lines as follows, in line with the embedded bus driver:
 \begin{itemize}
-    \item the \textbf{DI} pin (\textit{Driver Input}, data to transmit) of the MAX3485 is connected to the microcontroller's \textbf{TX} output, on GPIO \textbf{G6};
-    \item the \textbf{RO} pin (\textit{Receiver Output}, received data) is connected to the \textbf{RX} input, on GPIO \textbf{G5};
+    \item the \textbf{DI} pin (\textit{Driver Input}, data to transmit) of the MAX3485 is connected to the microcontroller's \textbf{TX} output, on GPIO \textbf{G6}.
+    \item the \textbf{RO} pin (\textit{Receiver Output}, received data) is connected to the \textbf{RX} input, on GPIO \textbf{G5}.
     \item the \textbf{DE/RE} direction pins (\textit{Enable}) are tied together and driven by a free GPIO (\textbf{G7}), wired to the UART's RTS pin for automatic hardware switching.
 \end{itemize}
 
 Finally, to keep the signal clean at high speed and absorb reflections, the RS-485 bus was secured, as on the first bench, with two 120\,$\Omega$ termination resistors: the first at the end of the cluster's last motor, the second placed directly on the board, bridging the A and B data lines of the MAX3485.
 
 \paragraph{Firmware adaptation.}
-This board finally comes with the software change anticipated above. In the \texttt{drivers/motor\_bus} driver, opening the hardware UART is now completed by enabling the ESP32-S3's RS-485 half-duplex mode~\cite{esp32s3_uart}, tying the RTS pin (here G7) to the transceiver's DE/RE direction; the bus throughput, set centrally in \texttt{firmware\_config.h}, is raised from 3\,Mbps toward the high-speed target, and each motor's \textit{Return Delay Time} is reduced accordingly. The protocol layer (Dynamixel~2.0 frames, CRC-16, \texttt{SyncWrite}/\texttt{SyncRead}), already validated on the first bench, stays unchanged: only the physical bus-turnaround stage evolves. The quantitative characterization of the gains from this configuration (loss rate, effective frequency, shoulder tracking quality) is presented in the next section.
+This board finally comes with the software change anticipated above. In the \texttt{drivers/motor\_bus} driver, opening the hardware UART is now completed by enabling the ESP32-S3's RS-485 half-duplex mode~\cite{esp32s3_uart}, tying the RTS pin (here G7) to the transceiver's DE/RE direction. The bus throughput, set centrally in \texttt{firmware\_config.h}, is raised from 3\,Mbps toward the high-speed target, and each motor's \textit{Return Delay Time} is reduced accordingly. The protocol layer (Dynamixel~2.0 frames, CRC-16, \texttt{SyncWrite}/\texttt{SyncRead}), already validated on the first bench, stays unchanged: only the physical bus-turnaround stage evolves. The quantitative characterization of the gains from this configuration (loss rate, effective frequency, shoulder tracking quality) is presented in the next section.
 
 \subsection{Results at High Baud Rate}
 
@@ -703,7 +703,7 @@ With tracking validated, it remained to quantify the price of telemetry on the l
 As Figure~\ref{fig:sweep_motors} shows, the control frequency drops from 191.6\,Hz with a single motor to 172.8\,Hz with five, with a particularly sharp fall at the fifth. One point is essential: the \emph{tracking} stays excellent in every case. Only the loop \emph{rate} is affected, not the command/position fidelity.
 
 
-This result raises an immediate question: is this degradation an inevitable price of logging, or does it appear only in a particular regime? To settle it, I reran the exact same campaign (same motors, same $K = 3$, same $N = 1 \ldots 5$ sweep) at lower setpoint rates: 36, 72 and 100\,Hz. The conclusion is clear-cut, and perfectly readable in Figure~\ref{fig:motor_logging_sweep} as in Table~\ref{tab:matrix}: \textbf{at low frequency, the number of logged motors has no measurable effect on the control frequency}. At 36\,Hz, the five configurations all give 35.9--36.0\,Hz; at 100\,Hz, they stay grouped around 96\,Hz, whether we log one motor or five. The contrast with the 200\,Hz regime is striking, and it is the key to the interpretation.
+Looking this result we can wonder if this degradation is an inevitable price of logging, or does it appear only in a particular regime. To settle it, I reran the exact same campaign (same motors, same $K = 3$, same $N = 1 \ldots 5$ sweep) at lower setpoint rates: 36, 72 and 100\,Hz and the conclusion is clear-cut, and perfectly readable in Figure~\ref{fig:motor_logging_sweep} as in Table~\ref{tab:matrix}: \textbf{at low frequency, the number of logged motors has no measurable effect on the control frequency}. At 36\,Hz, the five configurations all give 35.9--36.0\,Hz, at 100\,Hz, they stay grouped around 96\,Hz, whether we log one motor or five, this clearly shows that the problem occurs primarily at high frequencies.
 
 \iffalse
 
@@ -827,7 +827,7 @@ This result raises an immediate question: is this degradation an inevitable pric
 \end{table}
 
 \paragraph{A baseline frequency drop, independent of logging.}
-A second, quieter lesson hides in the same table: even below the degradation threshold, the real frequency stays slightly under the setpoint, 96.2\,Hz for a 100\,Hz target, 68\,Hz for 72\,Hz. This deficit, on the order of a few percent, is also \emph{independent of $N$} (the corresponding columns are flat). It does not come from telemetry, then, but from the incompressible load run on \emph{every} frame: the broadcast \texttt{SyncWrite}, the command interpolation, the IMU acquisition and servicing the 20\,Hz SSE stream. This background load, which we will write $t_{hk}$, caps the reachable rate regardless of how many motors are read; it should be carefully distinguished from the extra cost, variable in $N$, of the \texttt{SyncRead} read. These two contributions are exactly the two terms of the model that follows.
+A second, quieter lesson hides in the same table: even below the degradation threshold, the real frequency stays slightly under the setpoint, 96.2\,Hz for a 100\,Hz target, 68\,Hz for 72\,Hz. This deficit, on the order of a few percent, is also \emph{independent of $N$} (the corresponding columns are flat). It does not come from telemetry, then, but from the incompressible load run on \emph{every} frame: the broadcast \texttt{SyncWrite}, the command interpolation, the IMU acquisition and servicing the 20\,Hz SSE stream. This background load, which we will write $t_{hk}$, caps the reachable rate regardless of how many motors are read, it should be carefully distinguished from the extra cost, variable in $N$, of the \texttt{SyncRead} read. These two contributions are exactly the two terms of the model that follows.
 
 \paragraph{A time-budget model.}
 These behaviors, a baseline deficit independent of $N$, degradation in $N$ only at high frequency, are explained by a single model: a \emph{time budget per frame}. The control loop is a fixed-period scheduler targeting $T_c = 1/f_c$. Each frame runs the background load $t_{hk}$ introduced above. Once every $K$ frames, the \texttt{SyncRead} pass of the $N$ motors is added, whose sequential bus occupancy splits into a fixed term and a term proportional to the number of responses:
@@ -851,7 +851,7 @@ In the overflow regime, equation~\eqref{eq:budget} reduces to a \emph{linear law
 T_{\text{real}}(N) \approx 5.18 + 0.036\,N \quad [\text{ms}] \qquad (f_c = 200~\text{Hz}).
 \label{eq:fit}
 \end{equation}
-The match with the measurements (Table~\ref{tab:model}) is remarkable: for $N = 1$ to $4$, the gap between predicted and measured frequency never exceeds $0.3$\,Hz, which \textbf{experimentally validates} the model. The fitted value $t_m \approx 0.11$\,ms/motor also confirms the benefit of the high throughput: the per-motor cost has been divided by a factor of $\sim 30$ compared with the 3--4\,ms of the auto-direction bus. Finally, the model predicts thresholds $f^\star$ between $\approx 136$\,Hz ($N = 5$) and $\approx 177$\,Hz ($N = 1$); it becomes immediately clear why 100\,Hz ($T_c = 10$\,ms) stays completely safe from degradation for any $N$, while 200\,Hz ($T_c = 5$\,ms) falls squarely into the overflow regime.
+The match with the measurements (Table~\ref{tab:model}) is remarkable: for $N = 1$ to $4$, the gap between predicted and measured frequency never exceeds $0.3$\,Hz, which \textbf{experimentally validates} the model. The fitted value $t_m \approx 0.11$\,ms/motor also confirms the benefit of the high throughput: the per-motor cost has been divided by a factor of $\sim 30$ compared with the 3--4\,ms of the auto-direction bus. Finally, the model predicts thresholds $f^\star$ between $\approx 136$\,Hz ($N = 5$) and $\approx 177$\,Hz ($N = 1$), so it becomes immediately clear why 100\,Hz ($T_c = 10$\,ms) stays completely safe from degradation for any $N$, while 200\,Hz ($T_c = 5$\,ms) falls squarely into the overflow regime.
 
 \begin{table}[H]
 \centering
@@ -899,7 +899,7 @@ One last check was needed in the degraded regime (200\,Hz, $N = 5$): is the rate
     \label{fig:cumulatif}
 \end{figure}
 
-In the end, moving to high throughput does more than improve tracking: it makes the system's timing behavior \emph{predictable and controllable}. The real control frequency is described by a simple, validated model, with two regimes separated by the threshold $f^\star$; it can be fixed deterministically at the design stage of a test, by choosing the (rate, number of logged motors) pair knowingly. This predictability is a sound basis for the later study of the swimming dynamics, where fine control of the command rate is essential.
+In the end, moving to high throughput does more than improve tracking : it makes the system's timing behavior \emph{predictable and controllable}. The real control frequency is described by a simple, validated model, with two regimes separated by the threshold $f^\star$, so it can be fixed deterministically at the design stage of a test, by choosing the (rate, number of logged motors) pair knowingly. This predictability is a sound basis for the later study of the swimming dynamics, where fine control of the command rate is essential.
 
 
 
@@ -1002,15 +1002,15 @@ Commanded cycle (s) & Frames & Real cycle (s) & $f_{\text{real}}$ (Hz) \\ \hline
 \label{tab:swum_cycle}
 \end{table}
 
-The real frequency is invariant ($\approx 89.4 \pm 0.5$\,Hz); the real cycle follows $\text{real cycle} = \text{commanded cycle} \times 100/f_{\text{real}}$. The 1.80\,s setting hits the target swimming cycle of 2.00\,s.
+The real frequency is invariant ($\approx 89.4 \pm 0.5$\,Hz) and the real cycle follows $\text{real cycle} = \text{commanded cycle} \times 100/f_{\text{real}}$. The 1.80\,s setting hits the target swimming cycle of 2.00\,s.
 
 \paragraph{Optimal parameters retained.}
 This campaign on the real robot fully confirms the budget model and leads to a parameter set determined end to end by experiment, which will serve as the reference for the future swimming experiments:
 \begin{itemize}
-    \item \textbf{Command rate}: 100\,Hz (best budget/bandwidth compromise);
-    \item \textbf{Logged motors}: 21, the whole body;
-    \item \textbf{Sampling interval}: 6 frames;
-    \item \textbf{Commanded cycle time}: 1.80\,s, giving a real swimming cycle of 2.00\,s;
+    \item \textbf{Command rate}: 100\,Hz (best budget/bandwidth compromise).
+    \item \textbf{Logged motors}: 21, the whole body.
+    \item \textbf{Sampling interval}: 6 frames.
+    \item \textbf{Commanded cycle time}: 1.80\,s, giving a real swimming cycle of 2.00\,s.
     \item \textbf{Real control rate}: $\approx 90$\,Hz.
 \end{itemize}
 This setting brings together the three goals: full telemetry of the 21 joints, a high and faithful control rate, and a real swimming cycle exactly matching the physical setpoint. It is the operating base on which the swimming-dynamics analyses that follow will rely.
@@ -1258,7 +1258,7 @@ This software safeguard is paired with a temporary hardware speed limit via the 
 \section{Angular Configuration of the SWUMANOID via the IMU}
 \label{sec:calcul_angle}
 
-This section formalizes, in full, the kinematic processing chain chosen to estimate the \emph{roll} ($\phi$, around the longitudinal axis $X$) and \emph{yaw} ($\psi$, around the vertical $Z$) angles of the SWUMANOID robot from the inertial unit (IMU) housed in the AtomS3R. The unit provides only a three-axis accelerometer $\mathbf{a}=(A_x,A_y,A_z)^{\mathsf T}$ and a three-axis gyroscope $\boldsymbol{\omega}=(G_x,G_y,G_z)^{\mathsf T}$, expressed in the AtomS3R's \emph{board} frame $\mathcal{B}$; neither an attitude quaternion nor a magnetometer is transmitted.
+This section formalizes, in full, the kinematic processing chain chosen to estimate the \emph{roll} ($\phi$, around the longitudinal axis $X$) and \emph{yaw} ($\psi$, around the vertical $Z$) angles of the SWUMANOID robot from the inertial unit (IMU) housed in the AtomS3R. The unit provides only a three-axis accelerometer $\mathbf{a}=(A_x,A_y,A_z)^{\mathsf T}$ and a three-axis gyroscope $\boldsymbol{\omega}=(G_x,G_y,G_z)^{\mathsf T}$, expressed in the AtomS3R's \emph{board} frame $\mathcal{B}$ neither an attitude quaternion nor a magnetometer is transmitted.
 
 The attitude is therefore reconstructed entirely on the client, transformed into the robot frame $\mathcal{R}$, referenced by a tare operation, then smoothed. The adopted convention is \emph{Z-Up} (the robot's vertical axis pointing up), in line with robotics standards.
 
@@ -1295,7 +1295,7 @@ We write unit quaternions as $q=(q_w,q_x,q_y,q_z)$ (scalar part first), $\otimes
 \label{subsec:acquisition}
 
 \paragraph{Conditioning the measurements.}
-The firmware transmits acceleration in milli-$g$ and angular velocity in deci-degrees per second; the physical quantities are recovered by
+The firmware transmits acceleration in milli-$g$ and angular velocity in deci-degrees per second so the physical quantities are recovered by
 \begin{equation}
 \mathbf{a}=\frac{1}{1000}\,\mathbf{a}_{\text{raw}}\ [\,g\,],
 \qquad
@@ -1331,7 +1331,7 @@ From this, by elimination and using the $\operatorname{arctan2}$ function (which
 Equation~\eqref{eq:roll_acc} is the physical basis of the roll estimate. But the accelerometer has two structural limits: it is \emph{blind to yaw} (gravity is invariant under rotation about the vertical, so $\psi$ appears in none of the equations above), and it is heavily noisy as soon as the sensor undergoes its own acceleration (vibrations from the 21 Dynamixel motors, shocks), the measured vector then no longer being purely gravitational.
 
 \paragraph{Gyroscope complement and quaternion kinematics.}
-The gyroscope provides the instantaneous angular velocity and allows, through integration, a fine and low-latency tracking of orientation; it suffers, on the other hand, from a cumulative drift (integrated bias). The fusion approach therefore combines the long-term stability of the accelerometer~\eqref{eq:roll_acc}--\eqref{eq:pitch_acc} with the short-term reactivity of the gyroscope. Rather than manipulate Euler angles (prone to gimbal lock), the orientation is carried by an attitude quaternion $q_{\text{raw}}$ ($\mathcal B\rightarrow\mathcal W$) whose kinematics obey
+The gyroscope provides the instantaneous angular velocity and allows, through integration, a fine and low-latency tracking of orientation, it suffers, on the other hand, from a cumulative drift (integrated bias). The fusion approach therefore combines the long-term stability of the accelerometer~\eqref{eq:roll_acc}--\eqref{eq:pitch_acc} with the short-term reactivity of the gyroscope. Rather than manipulate Euler angles (prone to gimbal lock), the orientation is carried by an attitude quaternion $q_{\text{raw}}$ ($\mathcal B\rightarrow\mathcal W$) whose kinematics obey
 \begin{equation}
 \dot{q}=\tfrac{1}{2}\,q\otimes
 \begin{pmatrix}0\\ \boldsymbol{\omega}\end{pmatrix}
@@ -1382,7 +1382,7 @@ The AtomS3R is not mounted along the SWUMANOID's anatomical axes: it sits in the
 
 To express the attitude in the robot's Z-Up frame $\mathcal R$, we apply a constant rigid transformation $q_{\text{calib}}$ corresponding to the following sequence of \emph{intrinsic} rotations (about the successive local axes) \textbf{(cf. Figure~\ref{fig:rotation_repere_schema})}:
 \begin{enumerate}
-  \item $R_1$: a $+37{.}2^\circ$ rotation about the board's \emph{initial} $X$ axis, which compensates the mechanical tilt and straightens the vertical axis \emph{upward};
+  \item $R_1$: a $+37{.}2^\circ$ rotation about the board's \emph{initial} $X$ axis, which compensates the mechanical tilt and straightens the vertical axis \emph{upward}.
   \item $R_2$: a $-90^\circ$ rotation about the \emph{new} $Z'$ axis, which aligns the board axes with the robot's front ($X$) and left ($Y$).
 \end{enumerate}
 
@@ -1466,7 +1466,7 @@ where $x[n]$ is the raw extracted angle~\eqref{eq:roll} or~\eqref{eq:yaw} and $y
 y[n]=y[n-1]+\alpha\,\Delta[n]
 \label{eq:ema_wrap}
 \end{equation}
-the output itself being folded back into $(-180^\circ,180^\circ]$; away from the discontinuity, \eqref{eq:ema_wrap} is strictly equivalent to~\eqref{eq:ema}. The associated cutoff frequency ($-3$~dB) depends on the sampling period $T_s$ (the stream is sent at a variable rate) and satisfies exactly
+the output itself being folded back into $(-180^\circ,180^\circ]$, away from the discontinuity, \eqref{eq:ema_wrap} is strictly equivalent to~\eqref{eq:ema}. The associated cutoff frequency ($-3$~dB) depends on the sampling period $T_s$ (the stream is sent at a variable rate) and satisfies exactly
 \begin{equation}
 \cos\!\big(2\pi f_c T_s\big)=1-\frac{\alpha^{2}}{2(1-\alpha)},
 \qquad\text{so, for }\alpha\ll1,\quad
