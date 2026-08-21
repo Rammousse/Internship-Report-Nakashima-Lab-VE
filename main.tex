@@ -86,8 +86,6 @@ Its focus is biomechanics and sports engineering. The main goal is to use roboti
 
 The research is not limited to water. It reaches into many everyday and athletic biomechanical problems: body dynamics during wheelchair tennis matches, the study of mass distribution and body management during sleep, and the modeling of effort in redundant human tasks.
 
-To test these models in the real world, the lab designs and runs a wide range of experimental devices, shown in Figure \ref{fig:prototypes_labo}. They range from wearable measurement systems for the upper limbs to biomimetic aquatic robots, and up to a full swimming humanoid robot, the SWUMANOID. This robot grew out of years of \textit{Bio-Robotics} research, and it is the project I joined.
-
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.32\textwidth}
@@ -111,6 +109,8 @@ To test these models in the real world, the lab designs and runs a wide range of
     \label{fig:prototypes_labo}
 \end{figure}
 
+To test these models in the real world, the lab designs and runs a wide range of experimental devices, shown in Figure \ref{fig:prototypes_labo}. They range from wearable measurement systems for the upper limbs to biomimetic aquatic robots, and up to a full swimming humanoid robot, the SWUMANOID. This robot grew out of years of \textit{Bio-Robotics} research, and it is the project I joined.
+
 
 \subsection{The SWUMANOID Project}
 
@@ -120,15 +120,15 @@ To sidestep all of this, the lab built a complete swimming humanoid robot that a
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.35\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
         \centering
-        \includegraphics[height=5.5cm]{Introduction/Model_3D_real_swimmer.png}
+        \includegraphics[height=9cm]{Introduction/Model_3D_real_swimmer.png}
         \caption{3D scan of the swimmer}
     \end{subfigure}
     \hfill
-    \begin{subfigure}[b]{0.6\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
         \centering
-        \includegraphics[height=4cm]{Introduction/SWUMANOID_Model_3D.png}
+        \includegraphics[height=9cm]{Introduction/SWUMANOID_Model_3D.png}
         \caption{3D model adapted for the robot}
     \end{subfigure}
     \caption{Robot geometry derived from the morphology of an elite swimmer.}
@@ -452,13 +452,11 @@ All of these instruments were consolidated into a single dashboard (Figure~\ref{
     \label{fig:final_dashboard}
 \end{figure}
 
-\paragraph{Network resilience:}
 Across the pool experiments, the small Wi-Fi dropouts would often freeze the web interface without warning the user. To make the system resilient to signal loss, I wrote a JavaScript \textit{Watchdog} that monitors the \textit{Server-Sent Events} (SSE) stream. If no data arrives for 600 ms, the interface shows an "OFFLINE" alert and silently attempts to reconnect. The reconnection strategy is \emph{linear} and aggressive, with fixed, closely spaced retries, because underwater the Wi-Fi link drops the instant the robot goes under and only comes back when it surfaces. This way there is no waiting delay once the robot reappears.
 
 
 \subsection{Telemetry Implementation and Memory Management}
 
-\paragraph{The memory challenge:}
 In parallel, I wanted to add the ability to record the telemetry logs (position, current, voltage, IMU) of each run. The first problem I spotted was the risk of saturating the ESP32's RAM (PSRAM) if it had to generate and store a text file in CSV format. The solution was to record these logs as a raw binary buffer, extremely compact. The software structure of one log cycle was optimized as shown in Table \ref{tab:telemetry}.
 
 \begin{table}[h]
@@ -477,7 +475,6 @@ In parallel, I wanted to add the ability to record the telemetry logs (position,
 
 This choice radically decouples the writing (a plain memory copy of fixed-width fields, with no allocation or text formatting) from the heavy processing, pushed offline onto the client computer. It also cleanly separates the command (\texttt{cmd}, known every cycle without touching the bus) from the position measurement (\texttt{pos}, acquired only when the motor actually answered). When a position could never be read, the field gets a sentinel value ($\mathtt{0x80000000}$) rather than zero. On the browser side, the matching CSV cell is then left empty, which prevents a zero or a leftover from the previous run from being mistaken for a valid physical reading.
 
-\paragraph{The physical latency challenge:}
 But during the first attempts to record all 21 motors, a second major obstacle appeared: a drastic drop in the control frequency. The robot's motion became strongly jerky, causing frame loss and a degraded swimming dynamic. This was not a memory saturation problem, but the physical limit of the RS-485 communication bus running in \textit{half-duplex}.
 
 While sending commands (\texttt{SyncWrite}) is nearly instant thanks to its \textit{broadcast} mode, reading states (\texttt{SyncRead}) forces each motor to answer sequentially. With an individual response time of about 3 to 4 ms per motor, polling every actuator in one pass froze the control loop for 60 to 80 ms, far beyond the critical 10 ms budget of a 100 Hz control loop.
@@ -516,8 +513,7 @@ where $f_{play}$ is the playback rate, $K$ the sampling stride (\textit{feedback
 
 This setup is rounded out by monitoring the safety-critical quantities. The current drawn by each motor, its supply voltage and its temperature are read during the bus scan (previous section), the total bus current is aggregated continuously, and the microcontroller's own temperature is shown permanently on the dashboard. These indicators let us catch a joint overheating or an abnormal current draw early, the classic symptom of a mechanical jam under hydrodynamic load, before it turns into a hardware failure.
 
-\paragraph{Memory footprint model:}
-Thanks to this temporal and structural organization, the \textit{stride} per record is reduced to $16 + 10N$ bytes. The total RAM size of the binary buffer, noted $M$, therefore depends on the number of selected motors $N$, the total number of frames $F$ of the trajectory, and the sampling interval $K$ (one frame recorded every $K$ frames). The generic formula is:
+So thanks to this temporal and structural organization, the \textit{stride} per record is reduced to $16 + 10N$ bytes. The total RAM size of the binary buffer, noted $M$, therefore depends on the number of selected motors $N$, the total number of frames $F$ of the trajectory, and the sampling interval $K$ (one frame recorded every $K$ frames). The generic formula is:
 \begin{equation}
 M(N, F, K) = \left\lfloor \frac{F}{K} \right\rfloor \times (16 + 10N)
 \end{equation}
@@ -553,15 +549,13 @@ Then I tried to get closer to the robot's real configuration by adding a second 
 
 Despite this careful topology, I saw massive packet loss (around $80\%$), which translated into extremely jerky motion. The phenomenon is the signature of an unterminated differential bus: at the end of the line, the electrical edges reflect and interfere with the useful frames. To absorb these reflections and match the line impedance, I placed a 120\,$\Omega$ termination resistor at \emph{each} of the two ends of the bus~\cite{dynamixel_x_manual}: one on the AtomS3R base terminal (between A and B), the other at the opposite end, on the XW430 terminal. The effect was spectacular: the motor motion became perfectly smooth and synchronized, with packet loss estimated at $0\%$. From then on I had stable control at 80\,Hz, already higher than the frequency used on the SWUMANOID.
 
-\paragraph{The high-speed wall.}
 The next goal was to push the control frequency to 200\,Hz, twice as high. But at that rate and across all the motors, the time budget per cycle (5\,ms) demands a much higher bus throughput: the motors would need to run at at least 1\,Mbps. Unfortunately, despite many attempts, I could never get past 115200\,bps. Beyond that, the microcontroller simply stopped detecting the motors. Counterintuitive at first, this behavior does not come from the communication chip but from the way the \textit{Atomic RS485} base~\cite{m5stack_atomic485} drives it.
 
 The base relies on an SP3485 transceiver~\cite{sp3485}, capable in theory of reaching 10\,Mbps. So the chip is not the culprit: that speed is the bit rate once the communication direction (transmit or receive) is already set. But the Dynamixel bus is \textit{half-duplex}: a single wire pair (A/B) carries both directions, so it has to switch constantly between transmit and receive. That switch is commanded by a dedicated transceiver pin, the \textit{DE} pin (\textit{Driver Enable}). The problem is that the M5Stack base does not expose this pin: it only brings out the TX and RX lines and hands the switching to an \textbf{automatic direction circuit} that "listens" to the data line to guess on its own when to transmit and when to receive.
 
 It is this automatic circuit, not the chip, that caps the throughput. It is tuned for low speeds: at 115200\,bps, one bit lasts about 8.7\,$\mu$s, which leaves it plenty of time to release the bus before the motor answers. At 1\,Mbps, a bit lasts only about 1\,$\mu$s: the circuit no longer releases the line fast enough, the base's transmission crushes the start of the motor's reply, and the microcontroller receives no \textit{Status Packet} at all. This turnaround latency also explains why, at that stage, the firmware had to set a deliberately high \textit{Return Delay Time} (EEPROM register~9), on the order of 500\,$\mu$s~\cite{dynamixel_x_manual}: the automatic circuit needed time to switch back to receive before the motor replied. Tolerable at 115200\,bps, this workaround becomes a dead end as soon as you try to shorten the cycle.
 
-\paragraph{Toward explicit control of the bus direction.}
-The fix, then, is not to look for a "faster" chip, since the SP3485 is already enough. It is to use a board where the DE direction pin is driven \emph{explicitly} by the microcontroller, instead of being left to a too-slow automaton. So I drew up the list of parts to order to replace the \textit{Atomic RS485} base:
+So the fix is not to look for a "faster" chip, since the SP3485 is already enough. It is to use a board where the DE direction pin is driven \emph{explicitly} by the microcontroller, instead of being left to a too-slow automaton. So I drew up the list of parts to order to replace the \textit{Atomic RS485} base:
 \begin{itemize}
     \item a 3.3\,V RS-485 transceiver board that exposes its DE pin (a MAX3485-type chip~\cite{max3485} / SP3485, 10\,Mbps).
     \item a 12--16\,V $\rightarrow$ 5\,V step-down converter to power the AtomS3R (the removed base had handled this conversion until then), first considered as a Pololu D24V10F5 module~\cite{pololu_d24v10f5}, finally built with a compact MP2307-based module~\cite{mp2307}.
@@ -604,29 +598,28 @@ When the components arrived, I assembled the new control board. Its three active
 
 To make this new circuit safe, the power architecture was carefully split into a power stage and a logic stage. A 16\,V power line, straight from the generator, supplies the Dynamixel motors, it is also fed into the DC-DC step-down converter (a compact module recognizable by its inductor marked "4R7", based on the MP2307~\cite{mp2307}), which turns it into a stable 5\,V for the AtomS3R. The logic stage of the MAX3485 module is powered at 3.3\,V directly from the AtomS3R, to keep the signal levels perfectly aligned. Finally, all the grounds (GND) of the generator, the converter, the AtomS3R and the MAX3485 were tied together for a strict common ground, with no reference drift.
 
-\paragraph{SWUMANOID motor configuration.}
 Above all, this new architecture made it possible, for the first time, to test the \emph{real} motors of the robot. The SWUMANOID is driven by three families of XW-series Dynamixel servomotors (waterproof, IP68 rating), spread across the body according to their torque needs (Figure~\ref{fig:swumanoid_map}): XW540-T140-R and XW540-T260-R~\cite{dynamixel_xw540t140,dynamixel_xw540t260} for the most heavily loaded joints, and XW430-T200-R~\cite{dynamixel_xw430t200} for the distal joints. It is precisely the waterproof nature of the XW series that justifies its use on a swimming robot, and that explains why the first bench (previous section) had to fall back on a non-waterproof XM motor as a substitute.
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.44\textwidth}
+    \begin{subfigure}[b]{0.34\textwidth}
         \centering
         \includegraphics[height=8cm]{schemas/swumanoid_motor_map.png}
-        \caption{Motor layout on the SWUMANOID's body and associated IDs.}
+        \caption{Motor layout on the SWUMANOID.}
         \label{fig:map_body}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.24\textwidth}
         \centering
         \includegraphics[height=5cm]{composants/XW_series_motors_dynamixel.png}
-        \caption{XW-series Dynamixel servomotor (waterproof).}
+        \caption{XW-series Dynamixel.}
         \label{fig:motor_xw}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.24\textwidth}
         \centering
         \includegraphics[height=5cm]{composants/xm540-w150.jpg}
-        \caption{XM-series servomotor used on the first bench.}
+        \caption{XM-series Dynamixel.}
         \label{fig:motor_xm}
     \end{subfigure}
     \caption{SWUMANOID motor configuration.}
@@ -651,10 +644,8 @@ Within this circuit (Figure~\ref{fig:circuit_test}), the ESP32-S3 architecture a
 
 Finally, to keep the signal clean at high speed and absorb reflections, the RS-485 bus was secured, as on the first bench, with two 120\,$\Omega$ termination resistors: the first at the end of the cluster's last motor, the second placed directly on the board, bridging the A and B data lines of the MAX3485.
 
-\paragraph{Firmware adaptation.}
 This board finally comes with the software change anticipated above. In the \texttt{drivers/motor\_bus} driver, opening the hardware UART is now completed by enabling the ESP32-S3's RS-485 half-duplex mode~\cite{esp32s3_uart}, tying the RTS pin (here G7) to the transceiver's DE/RE direction. The bus throughput, set centrally in \texttt{firmware\_config.h}, is raised from 3\,Mbps toward the high-speed target, and each motor's \textit{Return Delay Time} is reduced accordingly. The protocol layer (Dynamixel~2.0 frames, CRC-16, \texttt{SyncWrite}/\texttt{SyncRead}), already validated on the first bench, stays unchanged: only the physical bus-turnaround stage evolves. The quantitative characterization of the gains from this configuration (loss rate, effective frequency, shoulder tracking quality) is presented in the next section.
 
-\paragraph{From a test bench to a board that fits.}
 The five-motor bench proved the electronics were sound. But it was still a loose prototype, a handful of modules held together by jumper wires, and that is a problem. On a desk it works fine but inside the robot it does not. The MP2307 converter turned out to be simply too tall for the small waterproof box that lives in the SWUMANOID's head, and it would not go in no matter how I placed it.
 
 So I ordered two smaller parts (Figure~\ref{fig:new_components}). The first is a MINMAX M78AR05 step-down module, a tiny drop-in replacement for the bulky MP2307 that still delivers the same clean 5\,V rail~\cite{minmax_m78ar05}. The second is a compact soldering PCB, small enough to rest on the floor of the inner case.
@@ -721,8 +712,7 @@ With this new assembly, taking back control of the EN pin, the transmit/receive 
 
 As Figure \ref{fig:graph_200hz} shows, the running system behaves excellently. We reach a real frequency of \textbf{190.7 Hz} for a 200.0 Hz setpoint. Above all, unlike the old iterations where trajectory tracking was catastrophic, the measured positions (in orange) now sit perfectly on top of the command sent (in blue). The robot finally has an ultra-responsive control loop, which is essential for the next developments on the swimming dynamics.
 
-\paragraph{The cost of telemetry at 200~Hz.}
-With tracking validated, it remained to quantify the price of telemetry on the loop rate. As established earlier, reading states with \texttt{SyncRead} is inherently sequential on a \textit{half-duplex} bus: after a single broadcast instruction, the polled motors answer one after another~\cite{dynamixel_x_manual}. The bus occupancy per read therefore grows with the number of logged motors $N$. To isolate this factor, I ran a campaign where \emph{all} the selected motors are polled \emph{every $K = 3$ frames} (a single \texttt{SyncRead} pass per read), varying only their number $N$, from 1 to 5, with the setpoint held at 200\,Hz.
+With tracking validated, it remained to quantify the price of telemetry on the loop rate and as established earlier, reading states with \texttt{SyncRead} is inherently sequential on a \textit{half-duplex} bus: after a single broadcast instruction, the polled motors answer one after another~\cite{dynamixel_x_manual}. The bus occupancy per read therefore grows with the number of logged motors $N$. To isolate this factor, I ran a campaign where \emph{all} the selected motors are polled \emph{every $K = 3$ frames} (a single \texttt{SyncRead} pass per read), varying only their number $N$, from 1 to 5, with the setpoint held at 200\,Hz.
 
 \begin{figure}[H]
     \centering
@@ -876,14 +866,12 @@ Looking this result we can wonder if this degradation is an inevitable price of 
 4 & 36.0 & 68.0 & 95.9 & 187.7 \\ \hline
 5 & 35.9 & 69.5 & 95.9 & \textbf{172.8} \\ \hline
 \end{tabular}
-\caption{Real control frequency as a function of the number of logged motors $N$ and the setpoint rate $f_c$ ($K = 3$ frames).}
+\caption{Real control frequency as a function of the number of logged motors ($K = 3$ frames).}
 \label{tab:matrix}
 \end{table}
 
-\paragraph{A baseline frequency drop, independent of logging.}
-A second, quieter lesson hides in the same table: even below the degradation threshold, the real frequency stays slightly under the setpoint, 96.2\,Hz for a 100\,Hz target, 68\,Hz for 72\,Hz. This deficit, on the order of a few percent, is also \emph{independent of $N$} (the corresponding columns are flat). It does not come from telemetry, then, but from the incompressible load run on \emph{every} frame: the broadcast \texttt{SyncWrite}, the command interpolation, the IMU acquisition and servicing the 20\,Hz SSE stream. This background load, which we will write $t_{hk}$, caps the reachable rate regardless of how many motors are read, it should be carefully distinguished from the extra cost, variable in $N$, of the \texttt{SyncRead} read. These two contributions are exactly the two terms of the model that follows.
+As we can see in the table, even below the degradation threshold, the real frequency stays slightly under the setpoint, 96.2\,Hz for a 100\,Hz target, 68\,Hz for 72\,Hz. This deficit, on the order of a few percent, is also \emph{independent of $N$} (the corresponding columns are flat). It does not come from telemetry, then, but from the incompressible load run on \emph{every} frame: the broadcast \texttt{SyncWrite}, the command interpolation, the IMU acquisition and servicing the 20\,Hz SSE stream. This background load, which we will write $t_{hk}$, caps the reachable rate regardless of how many motors are read, it should be carefully distinguished from the extra cost, variable in $N$, of the \texttt{SyncRead} read. These two contributions are exactly the two terms of the model that follows.
 
-\paragraph{A time-budget model.}
 These behaviors, a baseline deficit independent of $N$, degradation in $N$ only at high frequency, are explained by a single model: a \emph{time budget per frame}. The control loop is a fixed-period scheduler targeting $T_c = 1/f_c$. Each frame runs the background load $t_{hk}$ introduced above. Once every $K$ frames, the \texttt{SyncRead} pass of the $N$ motors is added, whose sequential bus occupancy splits into a fixed term and a term proportional to the number of responses:
 \begin{equation}
 \tau_{\text{read}}(N) = t_0 + N\, t_m ,
@@ -907,6 +895,8 @@ T_{\text{real}}(N) \approx 5.18 + 0.036\,N \quad [\text{ms}] \qquad (f_c = 200~\
 \end{equation}
 The match with the measurements (Table~\ref{tab:model}) is remarkable: for $N = 1$ to $4$, the gap between predicted and measured frequency never exceeds $0.3$\,Hz, which \textbf{experimentally validates} the model. The fitted value $t_m \approx 0.11$\,ms/motor also confirms the benefit of the high throughput: the per-motor cost has been divided by a factor of $\sim 30$ compared with the 3--4\,ms of the auto-direction bus. Finally, the model predicts thresholds $f^\star$ between $\approx 136$\,Hz ($N = 5$) and $\approx 177$\,Hz ($N = 1$), so it becomes immediately clear why 100\,Hz ($T_c = 10$\,ms) stays completely safe from degradation for any $N$, while 200\,Hz ($T_c = 5$\,ms) falls squarely into the overflow regime.
 
+\vspace{1cm}
+
 \begin{table}[H]
 \centering
 \begin{tabular}{|c|c|c|c|}
@@ -922,10 +912,11 @@ $N$ & $f_{\text{real}}$ measured (Hz) & $f_{\text{real}}$ predicted (Hz) & Gap (
 \label{tab:model}
 \end{table}
 
-The point $N = 5$ at 200\,Hz (last row of Table~\ref{tab:model}, Figure~\ref{fig:sweep5}) breaks sharply with the linear law: the frequency falls to 172.8\,Hz where the model expected $\approx 186.7$\,Hz. Beyond four motors, the read-frame occupancy grows faster than the $N\,t_m$ term: the read is no longer just overflowing, it saturates, with the cost of the most distal motor in the chain (the ankle) approaching the timeout threshold. In practice, this gives a direct operating rule: to stay in the degradation-free regime, just pick the rate and the number of logged motors so that $R(N) \le T_c$. At 200\,Hz we therefore keep $N \le 4$ per read group (less than $7\%$ loss), while at 100\,Hz or below, logging is "free" regardless of the number of motors. This is exactly what justifies, \textit{a posteriori}, the combination of spatial selection and round-robin reading introduced earlier: it keeps $N$ small \emph{per read cycle} while still monitoring a large number of joints.
+The point $N = 5$ at 200\,Hz (last row of Table~\ref{tab:model}) breaks sharply with the linear law: the frequency falls to 172.8\,Hz where the model expected $\approx 186.7$\,Hz. Beyond four motors, the read-frame occupancy grows faster than the $N\,t_m$ term: the read is no longer just overflowing, it saturates, with the cost of the most distal motor in the chain (the ankle) approaching the timeout threshold. In practice, this gives a direct operating rule: to stay in the degradation-free regime, just pick the rate and the number of logged motors so that $R(N) \le T_c$. At 200\,Hz we therefore keep $N \le 4$ per read group (less than $7\%$ loss), while at 100\,Hz or below, logging is "free" regardless of the number of motors. This is exactly what justifies, \textit{a posteriori}, the combination of spatial selection and round-robin reading introduced earlier: it keeps $N$ small \emph{per read cycle} while still monitoring a large number of joints.
 
-\paragraph{The degradation is not cumulative.}
-One last check was needed in the degraded regime (200\,Hz, $N = 5$): is the rate loss stationary, or does it worsen over time (accumulated delay, drift)? So I replayed this configuration while progressively lengthening the recording duration, from $\sim$7\,s to $\sim$47\,s (Figure~\ref{fig:cumulatif}). The result is unambiguous: across all these runs, the control frequency stays confined to $173.8 \pm 0.6$\,Hz, a spread under $1\%$ and \emph{independent} of the duration. The degradation is therefore not cumulative: it is a fixed extra cost per read cycle, re-evaluated identically at each pass, with no memory or accumulated delay, and the command/position tracking repeats identically from one swimming cycle to the next. This confirms the time-invariance of model~\eqref{eq:budget}, where $f_{\text{real}}$ depends only on $N$, $K$ and $f_c$, not on the elapsed time.
+\vspace{0.5cm}
+
+The last check needed in the degraded regime (200\,Hz, $N = 5$) was the rate loss stationary, or does it worsen over time (accumulated delay, drift)? So I replayed this configuration while progressively lengthening the recording duration, from $\sim$7\,s to $\sim$47\,s (Figure~\ref{fig:cumulatif}). The result is unambiguous: across all these runs, the control frequency stays confined to $173.8 \pm 0.6$\,Hz, a spread under $1\%$ and \emph{independent} of the duration. The degradation is therefore not cumulative: it is a fixed extra cost per read cycle, re-evaluated identically at each pass, with no memory or accumulated delay, and the command/position tracking repeats identically from one swimming cycle to the next. This confirms the time-invariance of model~\eqref{eq:budget}, where $f_{\text{real}}$ depends only on $N$, $K$ and $f_c$, not on the elapsed time.
 
 \begin{figure}[H]
     \centering
@@ -961,11 +952,9 @@ In the end, moving to high throughput does more than improve tracking : it makes
 
 With the time-budget model established and validated on the five-motor bench, it remained to test it on the full robot, under real operating conditions. So I carried the campaign onto the SWUMANOID itself and its 21 motors, with a double goal: to check that the laws found earlier carry over, and above all to \emph{determine experimentally the optimal parameter set} for the future swimming experiments.
 
-\paragraph{The choice of 100~Hz.}
-All these tests were run at a setpoint rate of 100\,Hz. This choice follows directly from the budget model of the previous section. At 200\,Hz, the per-frame budget is only $T_c = 5$\,ms: it barely covers the background load and saturates as soon as more than four motors are logged, unusable for monitoring the whole body. Going down to 36 or 72\,Hz, on the other hand, would waste control bandwidth that is essential for the fine detail of the swimming dynamics. 100\,Hz offers the best compromise: its $T_c = 10$\,ms budget is wide enough to absorb the reading of many motors without collapsing the rate, while keeping a high control frequency. The measurements below confirm it, which is why it was kept as the reference rate.
+All these tests were run at a setpoint rate of 100\,Hz and this choice follows directly from the budget model of the previous section. At 200\,Hz, the per-frame budget is only $T_c = 5$\,ms: it barely covers the background load and saturates as soon as more than four motors are logged, unusable for monitoring the whole body. Going down to 36 or 72\,Hz, on the other hand, would waste control bandwidth that is essential for the fine detail of the swimming dynamics. 100\,Hz offers the best compromise: its $T_c = 10$\,ms budget is wide enough to absorb the reading of many motors without collapsing the rate, while keeping a high control frequency. The measurements below confirm it, which is why it was kept as the reference rate.
 
-\paragraph{Scaling up: from 1 to 21 logged motors.}
-Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first raised the number of logged motors progressively (Figure~\ref{fig:swum_scaling}). Up to six motors, logging is essentially \emph{free}: the real frequency stays capped at $\approx 96$\,Hz (95.9--96.2\,Hz), that is, at the background deficit alone, independent of $N$, already identified. The read fits entirely within the 10\,ms margin. It was even possible to log all \textbf{21 motors} at once, the telemetry of the whole body in a single run, a particularly satisfying result. However, at that number and with such tight sampling (every 3 frames), reading the 21 sequential responses overflows the budget by a wide margin: the rate collapses to 69.3\,Hz and the real cycle time stretches to 2.60\,s (Figure~\ref{fig:swum_21_3f}). The whole body is recorded, but at the price of a loop far too slow.
+Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first raised the number of logged motors progressively (Figure~\ref{fig:swum_scaling}). Up to six motors, logging is essentially \emph{free}: the real frequency stays capped at $\approx 96$\,Hz (95.9--96.2\,Hz), that is, at the background deficit alone, independent of $N$, already identified. The read fits entirely within the 10\,ms margin. It was even possible to log all \textbf{21 motors} at once, the telemetry of the whole body in a single run, a particularly satisfying result. However, at that number and with such tight sampling (every 3 frames), reading the 21 sequential responses overflows the budget by a wide margin: the rate collapses to 69.3\,Hz and the real cycle time stretches to 2.60\,s (Figure~\ref{fig:swum_21_3f}). Finally the whole body is recorded, but at the price of a loop far too slow.
 
 \begin{figure}[H]
     \centering
@@ -994,7 +983,6 @@ Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first ra
     \label{fig:swum_scaling}
 \end{figure}
 
-\paragraph{Loosening the sampling: from 3 to 6 frames.}
 With the whole body loggable but the loop too slow, the natural lever, already anticipated by the model, is to \emph{reduce the frequency of the reads} rather than their content. So I raised the sampling interval from 3 to 6 frames, spacing out the \texttt{SyncRead} passes to give the bus more time between two queries. The effect is spectacular (Figure~\ref{fig:swum_interval}): at 21 motors, the rate climbs from 69.3\,Hz back up to \textbf{89.9\,Hz}, and at 11 motors it even returns to the background ceiling ($\approx 96$\,Hz). Quantitatively, the amortized read overhead per frame drops from $\approx 4.4$\,ms (at 3 frames) to $\approx 1.1$\,ms (at 6 frames): a reduction that beats the factor of two expected from simply doubling the interval, since the wider spacing also gives the bus a recovery time that lightens the cost of each read. Doubling the sampling interval thus restores most of the rate while keeping full coverage of the 21 motors.
 
 \begin{figure}[H]
@@ -1012,7 +1000,6 @@ With the whole body loggable but the loop too slow, the natural lever, already a
     \label{fig:swum_interval}
 \end{figure}
 
-\paragraph{Tuning the cycle time: hitting the real swimming cycle.}
 With 21 motors logged every 6 frames, the $\approx 90$\,Hz rate is satisfying, but the real cycle time stays above the setpoint (2.28\,s for a commanded 2.05\,s). The reason is direct: the trajectory holds a fixed number of frames ($\text{cycle} \times \text{rate}$), and replaying them at 90\,Hz instead of 100\,Hz mechanically stretches the duration by a factor of $100/90 \approx 1.11$. So, as a last step, I varied only the commanded cycle time, with every other parameter frozen (Figure~\ref{fig:swum_cycle} and Table~\ref{tab:swum_cycle}). The observation confirms the model: the real frequency stays \emph{invariant}, locked around 89--90\,Hz, whatever the cycle time. The cycle time changes only the total duration, not the rate. It then becomes possible to \emph{pre-compensate} for the known deficit: to obtain the physically targeted swimming cycle of 2.0\,s, we just command a shorter cycle of 1.80\,s, which, stretched by the $1/0.90$ factor, gives exactly 2.00\,s real. This is the best operating point.
 
 \begin{figure}[H]
@@ -1038,7 +1025,7 @@ With 21 motors logged every 6 frames, the $\approx 90$\,Hz rate is satisfying, b
         \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f.png}
         \caption{Commanded cycle 2.05\,s $\rightarrow$ real cycle 2.28\,s (89.9 Hz).}
     \end{subfigure}
-    \caption{Sweep of the commanded cycle time (SWUMANOID, 100\,Hz, 21 motors, sampling every 6 frames).}
+    \caption{Sweep of the commanded cycle time (100\,Hz, 21 motors, sampling every 6 frames).}
     \label{fig:swum_cycle}
 \end{figure}
 
@@ -1058,8 +1045,7 @@ Commanded cycle (s) & Frames & Real cycle (s) & $f_{\text{real}}$ (Hz) \\ \hline
 
 The real frequency is invariant ($\approx 89.4 \pm 0.5$\,Hz) and the real cycle follows $\text{real cycle} = \text{commanded cycle} \times 100/f_{\text{real}}$. The 1.80\,s setting hits the target swimming cycle of 2.00\,s.
 
-\paragraph{Optimal parameters retained.}
-This campaign on the real robot fully confirms the budget model and leads to a parameter set determined end to end by experiment, which will serve as the reference for the future swimming experiments:
+\paragraph{Optimal parameters retained :} This campaign on the real robot fully confirms the budget model and leads to a parameter set determined end to end by experiment, which will serve as the reference for the future swimming experiments:
 \begin{itemize}
     \item \textbf{Command rate}: 100\,Hz (best budget/bandwidth compromise).
     \item \textbf{Logged motors}: 21, the whole body.
@@ -1094,7 +1080,7 @@ The time interval between two motor commands is thus rigorously fixed at $\Delta
 
 Piecewise-linear interpolation is only class $\mathcal{C}^0$: the velocity is piecewise constant and discontinuous at the nodes, which forces the motors into "staircase" command changes. We replace it with a \textit{periodic cubic spline}, a piecewise polynomial function of degree~3, class $\mathcal{C}^2$ over the whole interval: the interpolated position, velocity \emph{and} acceleration are continuous at the nodes. The acceleration discontinuities (infinite jerk) are thus eliminated at the source, for a compute cost linear in $N$.
 
-\paragraph{Mathematical formulation.} The $N$ frames of the source file are indexed on a uniform grid $x_i = i$, $i = 0,\dots,N-1$ (step $h = x_{i+1} - x_i = 1$), and we write $y_i$ for the angular command of a joint at frame $i$ (each motor is handled independently by the same algorithm). On each interval $[x_i,\, x_{i+1}]$, the trajectory is modeled by a cubic polynomial
+The $N$ frames of the source file are indexed on a uniform grid $x_i = i$, $i = 0,\dots,N-1$ (step $h = x_{i+1} - x_i = 1$), and we write $y_i$ for the angular command of a joint at frame $i$ (each motor is handled independently by the same algorithm). On each interval $[x_i,\, x_{i+1}]$, the trajectory is modeled by a cubic polynomial
 
 \begin{equation}
     S_i(x) = a_i + b_i\,(x - x_i) + c_i\,(x - x_i)^2 + d_i\,(x - x_i)^3
@@ -1249,7 +1235,6 @@ Each of the two passes costs only $\mathcal{O}(N)$ arithmetic operations, and th
 \end{equation}
 so that the number of frames produced respects exactly $F = f_{\mathrm{Hz}} \times T_{\mathrm{cycle}}$ and the next frame ($k = F$, first frame of the next cycle) falls precisely on $S(x_N) = y_0$.
 
-\paragraph{Performance of the periodic spline.}
 This new formulation solves the discontinuity problem at the source. Taking again the critical case of subsampling at 36~Hz, Figure~\ref{fig:spline_per_36} demonstrates the method's success perfectly. The command curve (in blue) anticipates the end of the cycle and joins the start of the next one perfectly smoothly. The transition, after 2 seconds, happens with no break in slope, definitively eliminating the mechanical jolts.
 
 \begin{figure}[H]
@@ -1348,7 +1333,6 @@ We write unit quaternions as $q=(q_w,q_x,q_y,q_z)$ (scalar part first), $\otimes
 \subsection{Acquisition and Fusion of the Raw Data}
 \label{subsec:acquisition}
 
-\paragraph{Conditioning the measurements.}
 The firmware transmits acceleration in milli-$g$ and angular velocity in deci-degrees per second so the physical quantities are recovered by
 \begin{equation}
 \mathbf{a}=\frac{1}{1000}\,\mathbf{a}_{\text{raw}}\ [\,g\,],
@@ -1408,7 +1392,6 @@ q_{\text{raw}}^{(0)}=\frac{\big(1+\hat{\mathbf{u}}\cdot\mathbf{z}_{\mathcal W},\
 \end{equation}
 so that the estimate starts flat, with the yaw arbitrarily fixed to zero (a purely relative heading).
 
-\paragraph{Quaternion complementary filter.}
 At each sample, the gyroscope prediction~\eqref{eq:gyro_step} is realigned on gravity \emph{only when} the measurement is judged quasi-static, that is $\big|\,\lVert\mathbf{a}\rVert-1\,\big|\le\tau$ with $\tau=0{.}25\,g$ (this test discards the self-acceleration phases, where gravity is masked). The predicted vertical in the body frame is
 \begin{equation}
 \hat{\mathbf{g}}_{\text{pred}}=q_{\text{raw}}^{-1}\otimes\mathbf{z}_{\mathcal W}\otimes q_{\text{raw}}
@@ -1449,7 +1432,6 @@ To express the attitude in the robot's Z-Up frame $\mathcal R$, we apply a const
 
 The negative sign of $R_2$ is a direct consequence of the Z-Up convention: once the vertical axis is straightened, the "handedness" of the intermediate frame demands a $-90^\circ$ rotation (and not $+90^\circ$) to correctly line up $X$ and $Y$.
 
-\paragraph{Matrix formulation.}
 With the elementary rotation matrices
 \begin{equation}
 R_x(\alpha)=\begin{pmatrix}1&0&0\\0&\cos\alpha&-\sin\alpha\\0&\sin\alpha&\cos\alpha\end{pmatrix},
@@ -1464,8 +1446,7 @@ R_z(-90^\circ)=\begin{pmatrix}0&1&0\\-1&0&0\\0&0&1\end{pmatrix}
 \label{eq:Rcalib}
 \end{equation}
 
-\paragraph{Quaternion formulation (implemented).}
-The code does not use $\mathbf{R}_{\text{calib}}$ but its equivalent quaternion, to eliminate any singularity. With the axis--angle parametrization $q_{\mathbf{n}}(\gamma)=\big(\cos\tfrac{\gamma}{2},\,\mathbf{n}\sin\tfrac{\gamma}{2}\big)$,
+But the code does not use $\mathbf{R}_{\text{calib}}$ but its equivalent quaternion, to eliminate any singularity. With the axis--angle parametrization $q_{\mathbf{n}}(\gamma)=\big(\cos\tfrac{\gamma}{2},\,\mathbf{n}\sin\tfrac{\gamma}{2}\big)$,
 \begin{equation}
 q_x=q_{\mathbf{e}_x}(37{.}2^\circ)=\big(\cos 18{.}6^\circ,\,\sin 18{.}6^\circ,\,0,\,0\big),
 \qquad
@@ -1498,7 +1479,6 @@ By construction, $q_{\text{display}}=\mathbf{1}$ (identity, i.e. $0^\circ$) when
 \subsection{Euler Angle Extraction and Low-Pass Filtering}
 \label{subsec:extract_filter}
 
-\paragraph{Conversion to Euler angles.}
 The final angles are extracted from $q_{\text{display}}$ by conversion to Tait--Bryan angles in the order $Z\!-\!Y\!-\!X$. This choice is justified by the structure of the problem: in a three-axis decomposition, only the \emph{intermediate} axis carries the singularity (gimbal lock) at $\pm90^\circ$. By placing the \emph{pitch} ($Y$) in the intermediate position, we guarantee that the \emph{roll} ($X$) and the \emph{yaw} ($Z$), the outer axes, stay readable without degeneracy as long as the pitch remains far from $\pm90^\circ$ --- which is the case for a robot swimming flat. An order placing $X$ or $Z$ in the center (for example $Z\!X\!Y$ or $Y\!X\!Z$) would instead cause a lock at $90^\circ$ of roll and corrupt the yaw reading. Writing $q_{\text{display}}=(q_w,q_x,q_y,q_z)$, the elements of the associated rotation matrix give
 \begin{empheq}[box=\fbox]{align}
 \phi\ (\text{roll}) &= \operatorname{arctan2}\!\big(2(q_yq_z+q_wq_x),\;1-2(q_x^{2}+q_y^{2})\big) \label{eq:roll}\\
