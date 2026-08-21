@@ -654,6 +654,60 @@ Finally, to keep the signal clean at high speed and absorb reflections, the RS-4
 \paragraph{Firmware adaptation.}
 This board finally comes with the software change anticipated above. In the \texttt{drivers/motor\_bus} driver, opening the hardware UART is now completed by enabling the ESP32-S3's RS-485 half-duplex mode~\cite{esp32s3_uart}, tying the RTS pin (here G7) to the transceiver's DE/RE direction. The bus throughput, set centrally in \texttt{firmware\_config.h}, is raised from 3\,Mbps toward the high-speed target, and each motor's \textit{Return Delay Time} is reduced accordingly. The protocol layer (Dynamixel~2.0 frames, CRC-16, \texttt{SyncWrite}/\texttt{SyncRead}), already validated on the first bench, stays unchanged: only the physical bus-turnaround stage evolves. The quantitative characterization of the gains from this configuration (loss rate, effective frequency, shoulder tracking quality) is presented in the next section.
 
+\paragraph{From a test bench to a board that fits.}
+The five-motor bench proved the electronics were sound. But it was still a loose prototype, a handful of modules held together by jumper wires, and that is a problem. On a desk it works fine but inside the robot it does not. The MP2307 converter turned out to be simply too tall for the small waterproof box that lives in the SWUMANOID's head, and it would not go in no matter how I placed it.
+
+So I ordered two smaller parts (Figure~\ref{fig:new_components}). The first is a MINMAX M78AR05 step-down module, a tiny drop-in replacement for the bulky MP2307 that still delivers the same clean 5\,V rail~\cite{minmax_m78ar05}. The second is a compact soldering PCB, small enough to rest on the floor of the inner case.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.4\textwidth}
+        \centering
+        \includegraphics[height=4cm]{composants/DCDC_converter_MINMAX.jpg}
+        \caption{MINMAX M78AR05 step-down converter.}
+        \label{fig:comp_minmax}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.4\textwidth}
+        \centering
+        \includegraphics[height=4cm]{composants/PCB_Board.jpg}
+        \caption{Compact soldering PCB (ElectroCookie).}
+        \label{fig:comp_pcb}
+    \end{subfigure}
+    \caption{The two smaller parts chosen to shrink the board down to size.}
+    \label{fig:new_components}
+\end{figure}
+
+Then, with Hiroki-san, I moved the whole circuit off the breadboard and onto that PCB. The AtomS3R, the MAX3485, the little converter and the termination resistors were all soldered down and wired point to point, so nothing can pop loose when the lid is closed. The board came out small, flat and sturdy. It drops straight into the waterproof case, which in turn slots into the head (Figure~\ref{fig:final_board}).
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.38\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{composants/New_Main_Board.jpg}
+        \caption{The soldered main board.}
+        \label{fig:board_soldered}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{composants/New_Main_Board_in_case.jpg}
+        \caption{Mounted in the waterproof case.}
+        \label{fig:board_case}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{composants/New_Main_Board_in_head.jpg}
+        \caption{Installed in the robot's head.}
+        \label{fig:board_head}
+    \end{subfigure}
+    \caption{The final soldered main board and its integration into the SWUMANOID's head.}
+    \label{fig:final_board}
+\end{figure}
+
+This is where the controller stands today: a single soldered board, fully tucked inside the robot, driving all twenty-one motors at high frequency. Every pool test from now on runs on this hardware.
+
 \subsection{Results at High Baud Rate}
 
 With this new assembly, taking back control of the EN pin, the transmit/receive switch happens with no latency at all. I was able to raise the baud rate to \textbf{3 Mbps} with perfect motor detection and zero packet loss. Freeing up this bandwidth drastically cuts the bus occupancy time: the cost of polling one motor, which reached 3 to 4\,ms on the slow, auto-direction bus (previous section), collapses here to the hundred-microsecond scale. This reduction, combined with the lower \textit{Return Delay Time} now allowed by explicit direction control, is what finally makes a high-frequency control loop reachable.
@@ -1513,6 +1567,8 @@ End of the internship!
 
 \bibitem{mp2307} MONOLITHIC POWER SYSTEMS (MPS), "MP2307 --- 3A, 23V, 340kHz Synchronous Rectified Step-Down Converter, Datasheet," 2020. URL: \url{https://www.monolithicpower.com/en/mp2307.html}.
 
+\bibitem{minmax_m78ar05} MINMAX TECHNOLOGY CO., LTD., "MINMAX M78AR05-1 --- Switching Regulator (7805 Pin-Compatible), Datasheet," 2018. URL: \url{https://www.minmax.com.tw/products.php?func=p_detail&p_id=94}.
+
 \end{thebibliography}
 
 \vspace{-0.5cm}
@@ -1521,7 +1577,7 @@ End of the internship!
 \addcontentsline{toc}{section}{Sitography}
 
 \begin{thebibliography}{99}
-\setcounter{enumiv}{10} % Resume numbering at [11]
+\setcounter{enumiv}{11} % Resume numbering at [11]
 
 \vspace{-0.5cm}
 
