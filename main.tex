@@ -532,81 +532,69 @@ Even in this worst case, the buffer needs only $\approx 32.54 \text{ kB}$ of RAM
 
 \subsection{Building a First Circuit and the Need for New Components}
 
-I did not have access to the robot during my personal work, yet its very core is the communication with the SWUMANOID's Dynamixel motors. So I set up a purely hardware test bench to validate the communication chain between the microcontroller and the actuators, independently of the robot's mechanics. One point matters up front: the motors actually mounted on the SWUMANOID (the waterproof XW series) were not available at that stage. This first bench used substitute motors that share exactly the same protocol (RS-485 bus, Dynamixel~2.0), namely an XM430 and then an XM540-W150-R~\cite{dynamixel_xm540w150}. These motors are not waterproof and are not in the robot, but they carry all the electrical and protocol properties of an X-series Dynamixel actuator, which makes them representative for tuning the communication layer.
+To validate the RS-485 communication chain (Dynamixel 2.0 protocol) between the microcontroller and the actuators, a preliminary hardware test bench was established. Due to the initial unavailability of the SWUMANOID's waterproof XW-series motors, functionally equivalent XM-series motors (XM430 and XM540-W150-R~\cite{dynamixel_xm540w150}) were utilized. These actuators share the same electrical and protocol properties, making them a representative substitute for tuning the communication layer.
 
-I first tackled the simplest case: a single motor wired to the microcontroller with minimal cabling. The result was immediately convincing. Sending raw commands (\textit{Ping}, \textit{Torque Enable} and basic moves) worked on the first try, proving that the differential wiring (Data+/Data--), the 12\,V supply and the AtomS3R cooperate correctly. I measured a packet loss of about $2\%$, with no practical consequence: the motion stayed smooth and precise.
-
-Then I tried to get closer to the robot's real configuration by adding a second motor on the bus, to drive several actuators at once. This step turned out to be much trickier: with naive wiring, I could not detect both motors at the same time. That pushed me toward a rigorous topology, shown in Figure~\ref{fig:premier_circuit}:
+Initial single-motor tests with minimal wiring successfully validated basic commands (\textit{Ping}, \textit{Torque Enable}), exhibiting a negligible $2\%$ packet loss with no impact on motion precision. However, scaling to a multi-motor configuration required a rigorous electrical topology to maintain signal integrity and ensure device detection (Figure~\ref{fig:premier_circuit}):
 \begin{itemize}
-    \item \textbf{Star power supply}: the 12\,V and ground run from the generator and reach the AtomS3R base, the XM motor and the XW motor \emph{independently}, all tied to a strict common ground, to avoid voltage drops and ground loops along the bus.
-    \item \textbf{Series data (\textit{daisy-chain})}: the D+ (A) and D-- (B) signals leave the AtomS3R, enter the first port of the XM540, exit through its second port, then terminate in the single port of the XW430.
+\item \textbf{Power supply (Star topology)}: Independent 12\,V and ground lines for the microcontroller and each motor, connected to a strict common ground to prevent voltage drops and ground loops.
+\item \textbf{Data line (Daisy-chain)}: Series routing of the D+ (A) and D-- (B) signals across the devices.
 \end{itemize}
 
 \begin{figure}[H]
-    \centering
-    \includegraphics[width=0.7\textwidth]{schemas/First_test_schema_xm_xw_motors.png}
-    \caption{Diagram of the first test circuit.}
-    \label{fig:premier_circuit}
+\centering
+\includegraphics[width=0.65\textwidth]{schemas/First_test_schema_xm_xw_motors.png}
+\caption{Diagram of the first test circuit.}
+\label{fig:premier_circuit}
 \end{figure}
 
-Despite this careful topology, I saw massive packet loss (around $80\%$), which translated into extremely jerky motion. The phenomenon is the signature of an unterminated differential bus: at the end of the line, the electrical edges reflect and interfere with the useful frames. To absorb these reflections and match the line impedance, I placed a 120\,$\Omega$ termination resistor at \emph{each} of the two ends of the bus~\cite{dynamixel_x_manual}: one on the AtomS3R base terminal (between A and B), the other at the opposite end, on the XW430 terminal. The effect was spectacular: the motor motion became perfectly smooth and synchronized, with packet loss estimated at $0\%$. From then on I had stable control at 80\,Hz, already higher than the frequency used on the SWUMANOID.
+Despite this topology, the bus experienced an $80\%$ packet loss, causing severe motion instability. The problem could be a signal reflection in an unterminated differential bus. To achieve impedance matching and absorb these reflections, 120,$\Omega$ termination resistors~\cite{dynamixel_x_manual} were installed at both ends of the transmission line (at the AtomS3R base and the terminal motor). This hardware correction successfully eliminated signal interference, reducing packet loss to $0\%$ and enabling stable, synchronized motor control at 80\,Hz.
 
-The next goal was to push the control frequency to 200\,Hz, twice as high. But at that rate and across all the motors, the time budget per cycle (5\,ms) demands a much higher bus throughput: the motors would need to run at at least 1\,Mbps. Unfortunately, despite many attempts, I could never get past 115200\,bps. Beyond that, the microcontroller simply stopped detecting the motors. Counterintuitive at first, this behavior does not come from the communication chip but from the way the \textit{Atomic RS485} base~\cite{m5stack_atomic485} drives it.
+To achieve the 200\,Hz control frequency target, the bus throughput needed to reach at least 1 Mbps. However, initial tests revealed a physical transmission cap at 115200 bps, beyond which the microcontroller failed to detect the motors. This limitation did not originate from the SP3485 transceiver~\cite{sp3485}, which supports up to 10 Mbps, but rather from the automatic direction circuit of the \textit{Atomic RS485} base~\cite{m5stack_atomic485}.
 
-The base relies on an SP3485 transceiver~\cite{sp3485}, capable in theory of reaching 10\,Mbps. So the chip is not the culprit: that speed is the bit rate once the communication direction (transmit or receive) is already set. But the Dynamixel bus is \textit{half-duplex}: a single wire pair (A/B) carries both directions, so it has to switch constantly between transmit and receive. That switch is commanded by a dedicated transceiver pin, the \textit{DE} pin (\textit{Driver Enable}). The problem is that the M5Stack base does not expose this pin: it only brings out the TX and RX lines and hands the switching to an \textbf{automatic direction circuit} that "listens" to the data line to guess on its own when to transmit and when to receive.
-
-It is this automatic circuit, not the chip, that caps the throughput. It is tuned for low speeds: at 115200\,bps, one bit lasts about 8.7\,$\mu$s, which leaves it plenty of time to release the bus before the motor answers. At 1\,Mbps, a bit lasts only about 1\,$\mu$s: the circuit no longer releases the line fast enough, the base's transmission crushes the start of the motor's reply, and the microcontroller receives no \textit{Status Packet} at all. This turnaround latency also explains why, at that stage, the firmware had to set a deliberately high \textit{Return Delay Time} (EEPROM register~9), on the order of 500\,$\mu$s~\cite{dynamixel_x_manual}: the automatic circuit needed time to switch back to receive before the motor replied. Tolerable at 115200\,bps, this workaround becomes a dead end as soon as you try to shorten the cycle.
-
-So the fix is not to look for a "faster" chip, since the SP3485 is already enough. It is to use a board where the DE direction pin is driven \emph{explicitly} by the microcontroller, instead of being left to a too-slow automaton. So I drew up the list of parts to order to replace the \textit{Atomic RS485} base:
-\begin{itemize}
-    \item a 3.3\,V RS-485 transceiver board that exposes its DE pin (a MAX3485-type chip~\cite{max3485} / SP3485, 10\,Mbps).
-    \item a 12--16\,V $\rightarrow$ 5\,V step-down converter to power the AtomS3R (the removed base had handled this conversion until then), first considered as a Pololu D24V10F5 module~\cite{pololu_d24v10f5}, finally built with a compact MP2307-based module~\cite{mp2307}.
-    \item an \textit{ATOM HUB Proto} prototyping case~\cite{m5stack_atom_hub_proto} to integrate everything cleanly.
-\end{itemize}
-
-On the software side, this hardware change comes with an evolution of the PlatformIO layer. Until then, the bus driver (\texttt{drivers/motor\_bus}) simply opened the ESP32-S3's hardware UART on the RX/TX pins and let the base handle direction. With a transceiver whose DE pin is accessible, I will use the \textbf{hardware RS-485 half-duplex mode of the ESP32-S3's UART}~\cite{esp32s3_uart}: the direction pin (RTS) is then toggled automatically by the UART controller itself, in direct sync with the last transmitted stop bit, with no software latency. The bus is thus freed in under a microsecond, which makes the turnaround fast enough for 1\,Mbps as well as 3\,Mbps. This explicit control will also let us cut the motors' \textit{Return Delay Time} to the strict minimum, tightening the control loop that much more.
-
-Once this assembly is in place, it remains to reprogram the \textit{baud rate} in each motor's EEPROM to match the microcontroller's, then to validate the bus stability (packet loss rate, CRC errors) at the new throughput. Reaching 1\,Mbps is already enough, in theory, to hit the 200\,Hz target with a comfortable margin, with the 3\,Mbps serving as a reserve for scaling up to all of the SWUMANOID's motors. This is the architecture that, once the components arrived, became the basis for the new \textit{main board} described in the next section.
-
-\subsection{New Main Board and Configuration}
-
-When the components arrived, I assembled the new control board. Its three active elements (Figure~\ref{fig:composants}) are the AtomS3R microcontroller~\cite{m5stack_atoms3r}, the RS-485 transceiver module with an accessible direction pin, and the DC-DC step-down converter supplying the logic power.
+Because the Dynamixel bus operates in half-duplex (a single A/B wire pair for both directions), the transceiver must constantly switch between transmit and receive modes via its Driver Enable (DE) pin, but the \textit{Atomic RS485} base does not expose this pin, relying instead on an internal automatic circuit to guess the data direction. While functional at low speeds (where a single bit lasts roughly 8.7 µs), this automatic switching is too slow for a 1 Mbps throughput (where a bit lasts $\approx 1$ µs). Consequently, the circuit fails to release the line fast enough, masking the start of the motor's \textit{Status Packet} reply. This turnaround latency previously required a deliberately high \textit{Return Delay Time} ($\approx 500$ µs)~\cite{dynamixel_x_manual}, a workaround incompatible with high-frequency control loops.
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.27\textwidth}
+    \begin{subfigure}[b]{0.25\textwidth}
         \centering
         \includegraphics[width=\textwidth]{composants/atoms3r_pinout.png}
-        \caption{AtomS3R (ESP32-S3, exposed PORT.A / GPIO).}
+        \caption{AtomS3R.}
         \label{fig:comp_atoms3r}
     \end{subfigure}
     \hfill
-    \begin{subfigure}[b]{0.31\textwidth}
+    \begin{subfigure}[b]{0.25\textwidth}
         \centering
         \includegraphics[width=\textwidth]{composants/MAX3485_avec_broche_EN.jpg}
-        \caption{RS-485 transceiver module (MAX3485).}
+        \caption{RS-485 transceiver module.}
         \label{fig:comp_rs485}
     \end{subfigure}
     \hfill
-    \begin{subfigure}[b]{0.31\textwidth}
+    \begin{subfigure}[b]{0.25\textwidth}
         \centering
         \includegraphics[width=\textwidth]{composants/DCDC_converter.jpeg}
-        \caption{DC-DC step-down converter (MP2307).}
+        \caption{DC-DC converter (MP2307).}
         \label{fig:comp_buck}
     \end{subfigure}
     \caption{Components of the new \textit{main board}.}
     \label{fig:composants}
 \end{figure}
 
-To make this new circuit safe, the power architecture was carefully split into a power stage and a logic stage. A 16\,V power line, straight from the generator, supplies the Dynamixel motors, it is also fed into the DC-DC step-down converter (a compact module recognizable by its inductor marked "4R7", based on the MP2307~\cite{mp2307}), which turns it into a stable 5\,V for the AtomS3R. The logic stage of the MAX3485 module is powered at 3.3\,V directly from the AtomS3R, to keep the signal levels perfectly aligned. Finally, all the grounds (GND) of the generator, the converter, the AtomS3R and the MAX3485 were tied together for a strict common ground, with no reference drift.
+Resolving this bottleneck required replacing the \textit{Atomic RS485} base with a custom hardware solution where the DE direction pin is explicitly driven by the microcontroller. To implement this, the two new components shown in Figure~\ref{fig:composants} were acquired. First, the architecture relies on a 3.3\,V RS-485 transceiver board with an exposed DE pin (MAX3485-type~\cite{max3485}). Furthermore, because the original base internally handled power regulation, this modification required adding a dedicated 12–16\,V to 5\,V step-down converter, implemented here with a compact MP2307 module~\cite{mp2307}.
 
-Above all, this new architecture made it possible, for the first time, to test the \emph{real} motors of the robot. The SWUMANOID is driven by three families of XW-series Dynamixel servomotors (waterproof, IP68 rating), spread across the body according to their torque needs (Figure~\ref{fig:swumanoid_map}): XW540-T140-R and XW540-T260-R~\cite{dynamixel_xw540t140,dynamixel_xw540t260} for the most heavily loaded joints, and XW430-T200-R~\cite{dynamixel_xw430t200} for the distal joints. It is precisely the waterproof nature of the XW series that justifies its use on a swimming robot, and that explains why the first bench (previous section) had to fall back on a non-waterproof XM motor as a substitute.
+On the software side, the PlatformIO bus driver was updated to leverage the hardware RS-485 half-duplex mode of the ESP32-S3's UART~\cite{esp32s3_uart}. By linking the transceiver's DE pin to the UART controller's RTS pin, the transmit/receive direction is toggled automatically in direct synchronization with the last transmitted stop bit. This eliminates software latency and frees the bus in under a microsecond, reliably supporting baud rates of 1 Mbps and up to 3 Mbps. This explicit direction control allows the motors' \textit{Return Delay Time} to be minimized, securing the high-frequency control loop and laying the groundwork for the final main board architecture.
+
+
+\subsection{New Main Board and Configuration}
+
+When the components arrived, I assembled the new control board. Its three active elements showing in the figure~\ref{fig:composants} are the AtomS3R microcontroller~\cite{m5stack_atoms3r}, the RS-485 transceiver module with an accessible direction pin, and the DC-DC step-down converter supplying the logic power.
+
+To make this new circuit safe, the power architecture was carefully split into a power stage and a logic stage. A 16\,V power line, straight from the generator, supplies the Dynamixel motors, it is also fed into the DC-DC step-down converter (a compact module recognizable by its inductor marked "4R7", based on the MP2307~\cite{mp2307}), which turns it into a stable 5\,V for the AtomS3R. The logic stage of the MAX3485 module is powered at 3.3\,V directly from the AtomS3R, to keep the signal levels perfectly aligned. Finally, all the grounds (GND) of the generator, the converter, the AtomS3R and the MAX3485 were tied together for a strict common ground, with no reference drift.
 
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.34\textwidth}
         \centering
-        \includegraphics[height=8cm]{schemas/swumanoid_motor_map.png}
+        \includegraphics[height=6cm]{schemas/swumanoid_motor_map.png}
         \caption{Motor layout on the SWUMANOID.}
         \label{fig:map_body}
     \end{subfigure}
@@ -628,29 +616,29 @@ Above all, this new architecture made it possible, for the first time, to test t
     \label{fig:swumanoid_map}
 \end{figure}
 
-To validate the hardware architecture under representative conditions, I built a test circuit combining the new components with a cluster of five \emph{real} Dynamixel motors from the robot: two XW430-T200-R, two XW540-T260-R and one XW540-T140-R. Each was given the ID matching its actual function in the SWUMANOID, so the bench faithfully reproduces a subset of the robot rather than an arbitrary assembly. The XW540-T140-R thus corresponds to a \textbf{shoulder joint}, whose behavior gets a detailed analysis in the results section. Unlike the first bench, limited to substitute motors, this configuration uses the definitive actuators: far more powerful and extremely responsive, they allow much better command tracking.
+Above all, this new architecture made it possible, for the first time, to test the \emph{real} motors of the robot. In fact, the SWUMANOID is driven by three families of XW-series Dynamixel servomotors (waterproof, IP68 rating), spread across the body according to their torque needs (Figure~\ref{fig:swumanoid_map}): XW540-T140-R and XW540-T260-R~\cite{dynamixel_xw540t140,dynamixel_xw540t260} for the most heavily loaded joints, and XW430-T200-R~\cite{dynamixel_xw430t200} for the distal joints, all these motors are waterproof.
+
+So, to validate the hardware architecture under representative conditions, I built a test circuit combining the new components with a cluster of five \emph{real} Dynamixel motors from the robot with two XW430-T200-R, two XW540-T260-R and one XW540-T140-R. Each was given the ID matching its actual function in the SWUMANOID, so the bench faithfully reproduces a subset of the robot rather than an arbitrary assembly. The XW540-T140-R thus corresponds to a \textbf{shoulder joint}, whose behavior gets a detailed analysis in the results section. Unlike the first bench, limited to substitute motors, this configuration uses far more powerful and extremely responsive, they allow much better command tracking.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{schemas/schema_5_moteurs_haut_baudrate.png}
-    \caption{New control circuit (AtomS3R, MAX3485, DC-DC converter) tested on the five XW motors representative of the SWUMANOID.}
+    \caption{New control circuit tested on the five XW motors.}
     \label{fig:circuit_test}
 \end{figure}
 
-Within this circuit (Figure~\ref{fig:circuit_test}), the ESP32-S3 architecture allows flexible pin routing. I configured the communication lines as follows, in line with the embedded bus driver:
+Within this circuit showed in the figure~\ref{fig:circuit_test}, the ESP32-S3 architecture allows flexible pin routing. I configured the communication lines as follows, in line with the embedded bus driver:
 \begin{itemize}
     \item the \textbf{DI} pin (\textit{Driver Input}, data to transmit) of the MAX3485 is connected to the microcontroller's \textbf{TX} output, on GPIO \textbf{G6}.
     \item the \textbf{RO} pin (\textit{Receiver Output}, received data) is connected to the \textbf{RX} input, on GPIO \textbf{G5}.
     \item the \textbf{DE/RE} direction pins (\textit{Enable}) are tied together and driven by a free GPIO (\textbf{G7}), wired to the UART's RTS pin for automatic hardware switching.
 \end{itemize}
 
-Finally, to keep the signal clean at high speed and absorb reflections, the RS-485 bus was secured, as on the first bench, with two 120\,$\Omega$ termination resistors: the first at the end of the cluster's last motor, the second placed directly on the board, bridging the A and B data lines of the MAX3485.
+Finally, to keep the signal clean at high speed and absorb reflections, the RS-485 bus was secured, as on the first bench, with two 120\,$\Omega$ termination resistors. This board finally comes with the software change anticipated above. In the \texttt{drivers/motor\_bus} driver, opening the hardware UART is now completed by enabling the ESP32-S3's RS-485 half-duplex mode~\cite{esp32s3_uart}, tying the RTS pin (here G7) to the transceiver's DE/RE direction. The bus throughput, set centrally in \texttt{firmware\_config.h}, is raised from 3\,Mbps toward the high-speed target, and each motor's \textit{Return Delay Time} is reduced accordingly. The protocol layer (Dynamixel~2.0 frames, CRC-16, \texttt{SyncWrite}/\texttt{SyncRead}), already validated on the first bench, stays unchanged.
 
-This board finally comes with the software change anticipated above. In the \texttt{drivers/motor\_bus} driver, opening the hardware UART is now completed by enabling the ESP32-S3's RS-485 half-duplex mode~\cite{esp32s3_uart}, tying the RTS pin (here G7) to the transceiver's DE/RE direction. The bus throughput, set centrally in \texttt{firmware\_config.h}, is raised from 3\,Mbps toward the high-speed target, and each motor's \textit{Return Delay Time} is reduced accordingly. The protocol layer (Dynamixel~2.0 frames, CRC-16, \texttt{SyncWrite}/\texttt{SyncRead}), already validated on the first bench, stays unchanged: only the physical bus-turnaround stage evolves. The quantitative characterization of the gains from this configuration (loss rate, effective frequency, shoulder tracking quality) is presented in the next section.
+So the five-motor bench proved the electronics were sound but it was still a loose prototype, a handful of modules held together by jumper wires, and that is a problem. On a desk it works fine but inside the robot it does not. The MP2307 converter turned out to be simply too tall for the small waterproof box that lives in the SWUMANOID's head, and it would not go in no matter how I placed it.
 
-The five-motor bench proved the electronics were sound. But it was still a loose prototype, a handful of modules held together by jumper wires, and that is a problem. On a desk it works fine but inside the robot it does not. The MP2307 converter turned out to be simply too tall for the small waterproof box that lives in the SWUMANOID's head, and it would not go in no matter how I placed it.
-
-So I ordered two smaller parts (Figure~\ref{fig:new_components}). The first is a MINMAX M78AR05 step-down module, a tiny drop-in replacement for the bulky MP2307 that still delivers the same clean 5\,V rail~\cite{minmax_m78ar05}. The second is a compact soldering PCB, small enough to rest on the floor of the inner case.
+So I ordered two smaller parts shown in the figure~\ref{fig:new_components}. The first is a MINMAX M78AR05 step-down module, a tiny drop-in replacement for the bulky MP2307 that still delivers the same clean 5\,V rail~\cite{minmax_m78ar05}. The second is a compact soldering PCB, small enough to rest on the floor of the inner case.
 
 \begin{figure}[H]
     \centering
@@ -671,7 +659,7 @@ So I ordered two smaller parts (Figure~\ref{fig:new_components}). The first is a
     \label{fig:new_components}
 \end{figure}
 
-Then, with Hiroki-san, I moved the whole circuit off the breadboard and onto that PCB. The AtomS3R, the MAX3485, the little converter and the termination resistors were all soldered down and wired point to point, so nothing can pop loose when the lid is closed. The board came out small, flat and sturdy. It drops straight into the waterproof case, which in turn slots into the head (Figure~\ref{fig:final_board}).
+Then, we moved the whole circuit off the breadboard and onto that PCB. The AtomS3R, the MAX3485, the little converter and the termination resistors were all soldered down and wired point to point, so nothing can pop loose when the lid is closed. The board came out small, flat and sturdy. It drops straight into the waterproof case, which in turn slots into the head we can see in figure~\ref{fig:final_board}.
 
 \begin{figure}[H]
     \centering
@@ -699,7 +687,7 @@ Then, with Hiroki-san, I moved the whole circuit off the breadboard and onto tha
     \label{fig:final_board}
 \end{figure}
 
-This is where the controller stands today: a single soldered board, fully tucked inside the robot, driving all twenty-one motors at high frequency. Every pool test from now on runs on this hardware.
+This represents the final state of the controller as a single soldered board securely housed inside the robot, driving all twenty-one motors at high frequency. All subsequent pool experiments rely on this hardware and working good.
 
 \subsection{Results at High Baud Rate}
 
@@ -1062,13 +1050,13 @@ This setting brings together the three goals: full telemetry of the 21 joints, a
 \label{sec:method_interpolation}
 \subsection{The Problem}
 
-Although the new hardware configuration (described in Section 3) allows control at 200 Hz, its development took significant time to design and deliver. During that wait, the pool tests had to run on the old configuration, capped at very low frequencies (between 36 Hz and 50 Hz) because of a low baud rate.\\
+Although the new hardware configuration (described in Section 3) allows control at 200 Hz, its development took significant time to design and deliver. During that wait, the pool tests had to run on the old configuration, capped at very low frequencies (between 36 Hz and 50 Hz) because of a low baud rate.
 
-Far from being wasted time, this temporary hardware constraint made us aware of some flaws in our algorithm. At 200 Hz, the density of command points hides the mathematical interpolation errors. At 36 Hz, though, the trajectory's continuity defects become large and physically destructive for the robot's swimming.\\
+Far from being wasted time, this temporary hardware constraint made us aware of some flaws in our algorithm. At 200 Hz, the density of command points hides the mathematical interpolation errors. At 36 Hz, though, the trajectory's continuity defects become large and physically destructive for the robot's swimming.
 
-The linear interpolation originally used to connect the motion frames guaranteed position continuity, but not the continuity of its derivatives: at each node, the commanded velocity changed discontinuously (theoretically infinite acceleration), which produced jerky motion. In particular, during the cyclic playback of a motion, so the repetition of the same file, the last frame usually did not coincide with the first: the loop-back caused a jump in position and velocity, and therefore a mechanical jolt at every cycle start.\\
+The linear interpolation originally used to connect the motion frames guaranteed position continuity, but not the continuity of its derivatives: at each node, the commanded velocity changed discontinuously (theoretically infinite acceleration), which produced jerky motion. In particular, during the cyclic playback of a motion, so the repetition of the same file, the last frame usually did not coincide with the first: the loop-back caused a jump in position and velocity, and therefore a mechanical jolt at every cycle start.
 
-The move to the initial pose was also too abrupt, and a software bug froze the control frequency at 15~Hz regardless of the interface settings.\\
+The move to the initial pose was also too abrupt, and a software bug froze the control frequency at 15~Hz regardless of the interface settings.
 
 To gain full flexibility over the timing, the parameter management logic was inverted. From now on, the control frequency ($f_{\mathrm{Hz}}$), the cycle duration ($T_{\mathrm{cycle}}$) and the number of repetitions ($N_{\mathrm{plays}}$) are the only variables set by the user. The number of frames per cycle ($F$) is no longer a constraint imposed by the source file, but a variable computed dynamically:
 
@@ -1104,8 +1092,7 @@ By construction, this form satisfies interpolation at the nodes ($S_i(x_i) = y_i
     d_i = \frac{y''_{i+1} - y''_i}{6h}
 \end{equation}
 
-\paragraph{Limits of the natural cubic spline.}
-Before solving the problem, we need to understand the limits of a classic ("natural") interpolation, where the second derivative is forced to zero at the ends. The SWUMANOID's original motion files are designed for a 2-second cycle at 72~Hz, so 144 frames. To assess this method, let us first look at its behavior at a high control frequency (90~Hz). At that frequency, the number of recomputed points is large. As Figure~\ref{fig:spline_nat_90} shows, the blue command curve follows the trajectory faithfully. The mathematical defect at the ends exists, but the very high density of points almost entirely masks it at the loop-back around 2 seconds.
+But before solving the problem, we need to understand the limits of a classic ("natural") interpolation, where the second derivative is forced to zero at the ends. The SWUMANOID's original motion files are designed for a 2-second cycle at 72~Hz, so 144 frames. To assess this method, let us first look at its behavior at a high control frequency (90~Hz). At that frequency, the number of recomputed points is large. As Figure~\ref{fig:spline_nat_90} shows, the blue command curve follows the trajectory faithfully. The mathematical defect at the ends exists, but the very high density of points almost entirely masks it at the loop-back around 2 seconds.
 
 \begin{figure}[H]
     \centering
@@ -1132,7 +1119,6 @@ The problem gets drastically worse at very low frequencies. At 36~Hz, half the n
     \label{fig:spline_nat_36}
 \end{figure}
 
-\paragraph{Second derivatives and periodic boundary conditions.}
 To kill this command jump and guarantee a smooth loop, the unknowns $y''_i$ at the nodes must be computed differently. Since the trajectory is meant to be repeated, it is modeled as a \emph{periodic} function of period $N$: node $x_N$ is identified with node $x_0$ ($y_N \equiv y_0$), and the interpolant $S$ is subjected to the periodic boundary conditions
 \begin{equation}
     S(x_0) = S(x_N), \qquad S'(x_0) = S'(x_N), \qquad S''(x_0) = S''(x_N)
@@ -1290,7 +1276,7 @@ This software safeguard is paired with a temporary hardware speed limit via the 
 \label{tab:hardware_profile}
 \end{table}
 
-\textbf{Fixing the CPU loop:} The 15 Hz limitation was resolved by drastically separating the blocking UART calls from the network handling (SSE), and by forcing a reset of the ESP32's hardware timers when the motion starts.
+To \textbf{fix the CPU loop}, the 15 Hz limitation was resolved by drastically separating the blocking UART calls from the network handling (SSE), and by forcing a reset of the ESP32's hardware timers when the motion starts.
 
 % \section{Implementing a PID controller}
 
@@ -1580,10 +1566,6 @@ End of the internship!
 \bibitem{threejs} THREE.JS AUTHORS. "Three.js --- JavaScript 3D library." Accessed on July 2, 2026. URL: \url{https://threejs.org/docs/}.
 
 \bibitem{m5stack_atomic485} M5STACK TECHNOLOGY CO., LTD. "ATOMIC RS485 Base --- Documentation." Accessed on July 7, 2026. URL: \url{https://docs.m5stack.com/en/atom/atomic485}.
-
-\bibitem{m5stack_atom_hub_proto} M5STACK TECHNOLOGY CO., LTD. "ATOM HUB Proto Kit --- Documentation." Accessed on July 12, 2026. URL: \url{https://docs.m5stack.com/en/atom/atom_hub_proto}.
-
-\bibitem{pololu_d24v10f5} POLOLU CORPORATION. "Pololu 5V, 1A Step-Down Voltage Regulator D24V10F5." Accessed on July 12, 2026. URL: \url{https://www.pololu.com/product/2831}.
 
 \bibitem{dynamixel_xw430t200} ROBOTIS CO., LTD. "DYNAMIXEL XW430-T200-R (e-Manual)." Accessed on July 21, 2026. URL: \url{https://emanual.robotis.com/docs/en/dxl/x/xw430-t200/}.
 
