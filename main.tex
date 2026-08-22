@@ -45,7 +45,7 @@
 \clearpage
 \pagestyle{empty} % No page number for the abstract
 \section*{Abstract}
-\textit{This report presents the work conducted during my M1 internship at the Nakashima Laboratory, focusing on the SWUMANOID humanoid swimming robot project. The objective of my internship was to improve and modernize the command and control system of the robot. To achieve this, I designed and assembled a new main control board and developed a web interface. This new architecture allows the operator to communicate directly with the robot and provides real-time access to all critical telemetry and status information during pool experiments. Successfully implementing these upgrades required including the seamless integration of motion files, the mathematical interpolation of joint trajectories for smooth swimming, the optimization of the communication baud rate, and the extraction of spatial orientation angles using IMU data. Ultimately, these contributions have established a highly reliable and responsive experimental platform for future hydrodynamic research.
+\textit{This report presents the work conducted during my M1 internship at the Nakashima Laboratory, focusing on the SWUMANOID humanoid swimming robot project. The objective of my internship was to improve and modernize the command and control system of the robot. To achieve this, I designed and assembled a new main control board and developed a web interface. This new architecture allows the operator to communicate directly with the robot and provides real-time access to all critical telemetry and status information during pool experiments. Successfully implementing these upgrades required including the seamless integration of motion files, the mathematical interpolation of joint trajectories for smooth swimming, the optimization of the communication baud rate, and the extraction of spatial orientation angles using IMU data. Ultimately, these contributions have established a reliable and responsive experimental platform for future hydrodynamic research.
 }
 
 % ==========================================
@@ -256,15 +256,15 @@ During the experiment itself, I operate the SWUMANOID from the web interface I b
 
 When I joined the SWUMANOID project, my first big task was to take over and develop the firmware of the robot's embedded controller. On my first day, YANADORI-san and NAGATA-san handed me a set of requirements written during their earlier pool experiments, where they had spotted several critical weaknesses in the old control system.
 
-That previous system was hurting the quality of the research. The control frequency was locked at 72 Hz, which produced mechanical jerks, the Wi-Fi link dropped packets frequently and logging went to an SD card that turned out to be far too slow, sometimes stalling the main code. My overall goal, then, was to improve the robot's performance, stability, and user interface.
+That previous has some issues: the control frequency was locked at 72 Hz, which produced mechanical jerks, the Wi-Fi link dropped packets frequently and logging went to an SD card that turned out to be far too slow, sometimes stalling the main code. My overall goal, then, was to improve the robot's performance, stability, and user interface.
 
 The embedded system is built on the \textbf{PlatformIO} build system, using the \textbf{Arduino} framework on an \textbf{Espressif ESP32-S3} microcontroller. The firmware handles real-time control of the servomotors over a Dynamixel RS-485 bus, inertial measurement, wireless communication through a Wi-Fi access point, and the reading of motion trajectories.
 
-Originally, the software was built around a finite state machine (\texttt{AppState}: \texttt{Boot}, \texttt{Idle}, \texttt{Loading}, \texttt{Ready}, \texttt{Running}, \texttt{Stopping}, \texttt{Error}), driven by \textbf{UDP} commands received from a web interface, with the system state and telemetry sent back to the client through periodic packets. Inherited from earlier experiments, this scheme relied on a fixed-rate "burst" UDP stream, which was especially sensitive to Wi-Fi packet loss.
+Originally, the software was built around a finite state machine driven by \textbf{UDP} commands received from a web interface, with the system state and telemetry sent back to the client through periodic packets. Inherited from earlier experiments, this scheme relied on a fixed-rate "burst" UDP stream, which was especially sensitive to Wi-Fi packet loss.
 
 During the migration, I replaced this UDP stack with \textbf{HTTP}-based communication. The operator's commands (bus scan, load a motion, play, stop, E-STOP) now travel as simple HTTP requests, while the system state, motor telemetry and IMU data are streamed continuously to the browser over a one-way \textit{Server-Sent Events} (SSE) flow, which holds up far better against the small Wi-Fi dropouts.
 
-The original firmware had been written and validated for the \textbf{M5Stack AtomS3} development board \cite{m5stack_atoms3}. But to meet the new requirements, the hardware had just been upgraded to the \textbf{M5Stack AtomS3R} \cite{m5stack_atoms3r} right before I arrived. Figure \ref{fig:m5stack_comparison} shows the two microcontrollers.
+The original firmware had been written and validated for the \textbf{M5Stack AtomS3} development board \cite{m5stack_atoms3}. But to meet the new requirements, the hardware had just been upgraded to the \textbf{M5Stack AtomS3R} \cite{m5stack_atoms3r} right before I arrived, we can see the two microcontrollers in the figure \ref{fig:m5stack_comparison}.
 
 \begin{figure}[H]
     \centering
@@ -283,7 +283,7 @@ The original firmware had been written and validated for the \textbf{M5Stack Ato
     \label{fig:m5stack_comparison}
 \end{figure}
 
-Both boards share the same core architecture, the ESP32-S3 SoC, which gives them identical compute power and the same networking module (Wi-Fi/Bluetooth). They differ in how their chip is integrated and in their peripheral components. The AtomS3R uses a highly integrated "PICO" module that stacks extra memory without growing the board's footprint. Table \ref{tab:m5stack_diff} lays out all of these hardware characteristics.
+Both boards share the same core architecture, the ESP32-S3 SoC, which gives them identical compute power and the same networking module (Wi-Fi/Bluetooth). They differ in how their chip is integrated and in their peripheral components. In fact, the AtomS3R uses a highly integrated "PICO" module that stacks extra memory without growing the board's footprint. The table \ref{tab:m5stack_diff} lays out all of these hardware characteristics.
 
 \begin{table}[H]
 \centering
@@ -310,18 +310,20 @@ Both boards share the same core architecture, the ESP32-S3 SoC, which gives them
 \label{tab:m5stack_diff}
 \end{table}
 
-The key advantage of the new microcontroller is the added \textbf{8 MB of PSRAM} on the AtomS3R \cite{m5stack_atoms3r}. This directly solves the problems my supervisors raised. Thanks to its dual-core processor and its large RAM reserve, the AtomS3R now lets us:
+So the key advantage of the new microcontroller is the added \textbf{8 MB of PSRAM} on the AtomS3R \cite{m5stack_atoms3r} which allows to solve the problems my supervisors raised. Thanks to its dual-core processor and its large RAM reserve, the AtomS3R now lets us:
 \begin{itemize}
     \item Reach an ultra-fast \textbf{200 Hz} control loop for all 21 motors, giving smooth, responsive motion free of mechanical jolts.
     \item Run the Wi-Fi network on core 0 of the processor, while core 1 handles only the motor control loop in a strictly deterministic way, never interrupted by network requests.
     \item \textbf{Eliminate the SD-card bottleneck}: the large PSRAM now lets us store all the telemetry logs extremely fast, directly in the microcontroller's RAM, before sending them to the web interface at the end of an experiment.
 \end{itemize}
 
-My first technical task, then, was to \textbf{migrate the hardware driver layer} from the old code to the new AtomS3R firmware. The original code relied on manual register access specific to the AtomS3, so I had to rework that part around the \textbf{M5Unified} library, which natively supports both hardware architectures. I started by replacing the raw I2C register access (specific to the MPU6886) with standardized \texttt{M5.Imu} calls to correctly read the new BMI270 sensor. Then I made sure the LCD screen and its new I2C backlight controller were properly initialized during the \texttt{Boot} sequence.
+My first technical task, then, was to \textbf{migrate the hardware driver layer} from the old code to the new AtomS3R firmware. In fact, the original code relied on manual register access specific to the AtomS3, so I had to rework that part around the \textbf{M5Unified} library, which natively supports both hardware architectures. I started by replacing the raw I2C register access (specific to the MPU6886) with standardized \texttt{M5.Imu} calls to correctly read the new BMI270 sensor, then I made sure the LCD screen and its new I2C backlight controller were properly initialized during the \texttt{Boot} sequence.
 
 
 \subsection{New Web Architecture}
 The main goal of this second development phase was to fold every control function directly into the user interface, the page that manages the microcontroller, so we could drive the SWUMANOID correctly and easily. Just as important, the interface had to show, in real time, all the information we need to run the experiments well and to understand which factor is limiting us and how to fix it.
+
+The starting point was a minimal supervision console (figure~\ref{fig:evolution_rssi}, left), limited to a raw display of the controller state and a few text commands. It told us nothing about the radio link quality, the robot's actual orientation, or the state of individual actuators, which made any experimental diagnosis painful. So the rework was done incrementally, each iteration adding a measurement instrument aimed at one limiting factor identified during the tests.
 
 \begin{figure}[H]
     \centering
@@ -342,9 +344,7 @@ The main goal of this second development phase was to fold every control functio
     \label{fig:evolution_rssi}
 \end{figure}
 
-The starting point was a minimal supervision console (Figure~\ref{fig:evolution_rssi}, left), limited to a raw display of the controller state and a few text commands. It told us nothing about the radio link quality, the robot's actual orientation, or the state of individual actuators, which made any experimental diagnosis painful. So the rework was done incrementally, each iteration adding a measurement instrument aimed at one limiting factor identified during the tests.
-
-Since the requirements stressed that the Wi-Fi is often unstable, I started with a network diagnostic system:
+Since the requirements stressed that the Wi-Fi is often unstable, that's why I started to implement a network diagnostic system:
 \begin{itemize}
     \item I modified the firmware to compute the \textbf{RSSI} (Received Signal Strength Indicator), the actual strength of the Wi-Fi signal as seen by the robot.
     \item I built a web control interface with a \textbf{real-time chart (via Chart.js~\cite{chartjs})} that plots how this signal evolves. It lets us locate the packet-loss zones and confirm the connection quality before sending the robot into the water.
@@ -362,15 +362,17 @@ In the same spirit, I added a three-dimensional avatar of the robot to the inter
     \label{fig:imu_avatar}
 \end{figure}
 
-I also added the ability to upload motion files straight from SWAM (.dat), converted on the fly during upload, to make the web control interface fully standalone, smooth and secure. The trajectory conversion logic runs entirely on the client (JavaScript) and I ported it from the MATLAB code used previously and provided by Iroki-san.\\
+I also added the ability to upload motion files straight from SWAM (.dat), converted on the fly during upload, to make the web control interface fully standalone, smooth and secure. The trajectory conversion logic runs entirely on the client (JavaScript) and I ported it from the MATLAB code used previously and provided by Iroki-san.
 
 More precisely, when parsing the \texttt{.dat} file in JavaScript, each joint angle is converted to Dynamixel ticks using the affine formula of the X-series motors~\cite{dynamixel_x_manual}:
 \begin{equation}
 tick = \frac{\theta_{deg}+180}{360} \times 4095
 \end{equation}
-The conversion includes an integer rounding and a clamp to $[0, 4095]$. It can also apply a per-servo calibration table (an offset and rotation direction specific to each joint), to compensate for the mechanical mounting differences between the model's theoretical axis and the actuator's real axis. Finally, since the number of frames in the source file rarely matches the desired playback rate, the trajectory is resampled on the client with a \textbf{natural cubic spline} (continuous velocity and acceleration), which guarantees an organic, smooth motion rather than a piecewise-linear interpolation prone to jolts. When a trajectory has already been converted offline, the interface also accepts the direct import of a pre-computed file (\texttt{.inc}) holding the final tick matrix, skipping the conversion step entirely.\\
+The conversion includes an integer rounding and a clamp to $[0, 4095]$. It can also apply a per-servo calibration table (an offset and rotation direction specific to each joint), to compensate for the mechanical mounting differences between the model's theoretical axis and the actuator's real axis. 
 
-The AtomS3R now acts as a simple executor: it receives the trajectory as a single compact binary block, which makes it immune to Wi-Fi instability during playback. This binary format (little-endian) drastically minimizes the network transfer size. The structure of this packet is detailed in Table \ref{tab:binary_payload}.
+Also, as we will discuss in section \ref{sec:method_interpolation}, we decided to make the control frequency and the duration of a swimming cycle user-configurable to allow for flexible robot control. This capability entails calculating a new number of frames, $F$, using an interpolation method explained later and resulting in a frame count that differs from that of the motion file originally uploaded to the client.
+
+Finally, the AtomS3R now acts as a simple executor, it indeed receives the trajectory as a single compact binary block, which makes it immune to Wi-Fi instability during playback. This binary format (little-endian) drastically minimizes the network transfer size, the structure of this packet is detailed in Table \ref{tab:binary_payload}.
 
 \begin{table}[h]
 \centering
@@ -401,7 +403,7 @@ S(21, 144) &= 27 + 6048 \\
 S(21, 144) &= 6075 \text{ bytes}
 \end{align*}
 
-With a network \textit{payload} of exactly 6075 bytes (about 6.07 kB), the AtomS3R can easily absorb the whole trajectory in a single transfer. This loading panel also exposes the playback timing settings (rate in Hz, cycle duration, number of repetitions), from which the number of resampled frames is recomputed (Figure~\ref{fig:motion_control}). The web interface was reorganized into five vertical panels (Status, Network \& Scan, IMU Lab, Motion Control, Motion Settings \& Logs) for better readability. And the real-time communication now relies on one-way \textit{Server-Sent Events} (SSE)~\cite{whatwg_sse} rather than WebSockets, which removes the jitter and collision problems on the RS-485 bus.
+With a network \textit{payload} of exactly 6075 bytes (about 6.07 kB), the AtomS3R can easily absorb the whole trajectory in a single transfer. This loading panel also exposes the playback timing settings (rate in Hz, cycle duration, number of repetitions), from which the number of resampled frames is recomputed (Figure~\ref{fig:motion_control}). The web interface was reorganized into five vertical panels (Status, Network \& Scan, IMU Lab, Motion Control, Motion Settings \& Logs) for better readability and the real-time communication now relies on one-way \textit{Server-Sent Events} (SSE)~\cite{whatwg_sse} rather than WebSockets, which removes the jitter and collision problems on the RS-485 bus.
 
 \begin{figure}[H]
     \centering
@@ -443,7 +445,7 @@ To check the integrity of the actuation chain before any motion, I also implemen
     \label{fig:scan_motors}
 \end{figure}
 
-All of these instruments were consolidated into a single dashboard (Figure~\ref{fig:final_dashboard}), which gathers on one view the controller state and MCU temperature, the network scan panel, the IMU lab (3D avatar and roll, yaw, pitch angles), the motion control, and the telemetry management described in the next section.
+All of these instruments were put into a single dashboard (Figure~\ref{fig:final_dashboard}), which gathers on one view the controller state and MCU temperature, the network scan panel, the IMU lab (3D avatar and roll, yaw, pitch angles), the motion control, and the telemetry management described in the next section.
 
 \begin{figure}[H]
     \centering
@@ -452,12 +454,12 @@ All of these instruments were consolidated into a single dashboard (Figure~\ref{
     \label{fig:final_dashboard}
 \end{figure}
 
-Across the pool experiments, the small Wi-Fi dropouts would often freeze the web interface without warning the user. To make the system resilient to signal loss, I wrote a JavaScript \textit{Watchdog} that monitors the \textit{Server-Sent Events} (SSE) stream. If no data arrives for 600 ms, the interface shows an "OFFLINE" alert and silently attempts to reconnect. The reconnection strategy is \emph{linear} and aggressive, with fixed, closely spaced retries, because underwater the Wi-Fi link drops the instant the robot goes under and only comes back when it surfaces. This way there is no waiting delay once the robot reappears.
+Across the pool experiments, the small Wi-Fi dropouts would often freeze the web interface without warning the user. To make the system resilient to signal loss, I wrote a JavaScript \textit{Watchdog} that monitors the \textit{Server-Sent Events} (SSE) stream, so if no data arrives for 600 ms, the interface shows an "OFFLINE" alert and silently attempts to reconnect. The reconnection strategy is \emph{linear} and aggressive, with fixed, closely spaced retries, because underwater the Wi-Fi link drops the instant the robot goes under and only comes back when it surfaces. It's allowing the fact to not have any waiting delay once the robot reappears.
 
 
 \subsection{Telemetry Implementation and Memory Management}
 
-In parallel, I wanted to add the ability to record the telemetry logs (position, current, voltage, IMU) of each run. The first problem I spotted was the risk of saturating the ESP32's RAM (PSRAM) if it had to generate and store a text file in CSV format. The solution was to record these logs as a raw binary buffer, extremely compact. The software structure of one log cycle was optimized as shown in Table \ref{tab:telemetry}.
+In parallel, I wanted to add the ability to record the telemetry logs (position, current, voltage, IMU) of each run. The first problem I spotted was the risk of saturating the ESP32's RAM (PSRAM) if it had to generate and store a text file in CSV format. So the solution was to record these logs as a raw binary buffer, extremely compact. The software structure of one log cycle was optimized as shown in Table \ref{tab:telemetry}.
 
 \begin{table}[h]
 \centering
@@ -473,13 +475,13 @@ In parallel, I wanted to add the ability to record the telemetry logs (position,
 \label{tab:telemetry}
 \end{table}
 
-This choice radically decouples the writing (a plain memory copy of fixed-width fields, with no allocation or text formatting) from the heavy processing, pushed offline onto the client computer. It also cleanly separates the command (\texttt{cmd}, known every cycle without touching the bus) from the position measurement (\texttt{pos}, acquired only when the motor actually answered). When a position could never be read, the field gets a sentinel value ($\mathtt{0x80000000}$) rather than zero. On the browser side, the matching CSV cell is then left empty, which prevents a zero or a leftover from the previous run from being mistaken for a valid physical reading.
+This choice allows to decouple the writing (a plain memory copy of fixed-width fields, with no allocation or text formatting) from the heavy processing, pushed offline onto the client computer. It also cleanly separates the command (\texttt{cmd}, known every cycle without touching the bus) from the position measurement (\texttt{pos}, acquired only when the motor actually answered). But during the first attempts to record all 21 motors, a drastic drop in the control frequency appears. The robot's motion became strongly jerky, causing frame loss and a degraded swimming dynamic. This was not a memory saturation problem, but the physical limit of the RS-485 communication bus running in \textit{half-duplex}.
 
-But during the first attempts to record all 21 motors, a second major obstacle appeared: a drastic drop in the control frequency. The robot's motion became strongly jerky, causing frame loss and a degraded swimming dynamic. This was not a memory saturation problem, but the physical limit of the RS-485 communication bus running in \textit{half-duplex}.
+%When a position could never be read, the field gets a sentinel value ($\mathtt{0x80000000}$) rather than zero. On the browser side, the matching CSV cell is then left empty, which prevents a zero or a leftover from the previous run from being mistaken for a valid physical reading.
 
-While sending commands (\texttt{SyncWrite}) is nearly instant thanks to its \textit{broadcast} mode, reading states (\texttt{SyncRead}) forces each motor to answer sequentially. With an individual response time of about 3 to 4 ms per motor, polling every actuator in one pass froze the control loop for 60 to 80 ms, far beyond the critical 10 ms budget of a 100 Hz control loop.
 
-To resolve this timing conflict between motion smoothness and data acquisition, the architecture was reworked along two axes:
+
+While sending commands (\texttt{SyncWrite}) is nearly instant thanks to its \textit{broadcast} mode, reading states (\texttt{SyncRead}) forces each motor to answer sequentially. And with an individual response time of about 3 to 4 ms per motor, polling every actuator in one pass froze the control loop for 60 to 80 ms, far beyond the critical 10 ms budget of a 100 Hz control loop. To resolve this timing conflict between motion smoothness and data acquisition, the architecture was reworked like it :
 \begin{itemize}
     \item \textbf{Spatial selection (UI):} I added an interactive SVG diagram of the robot to the web interface, letting the user click on joints to select only the relevant motors ($N$ motors instead of all 21 every time).
     \item \textbf{Temporal selection and smoothing:} The embedded code now separates command sending from sensor reading. The user can set a sampling stride (\textit{Feedback sampling every $K$ frames}) to avoid logging every single frame. On top of that, a rotating (\textit{Round-Robin}) read was introduced (\textit{Motors polled per cycle}) so only a small subgroup of motors is queried per clock cycle, capping bus occupancy at $\approx 7$ ms and preserving the integrity of the control loop.
@@ -504,14 +506,14 @@ To resolve this timing conflict between motion smoothness and data acquisition, 
     \label{fig:svg_selection}
 \end{figure}
 
-Concretely, the SVG diagram (Figure~\ref{fig:svg_selection}) turns each joint into a clickable dot whose color reflects the motor state (selected, online, offline). The list of chosen IDs becomes the \texttt{read\_ids} parameter passed to the firmware when the motion starts. On the embedded side, a round-robin cursor walks this list and, at each acquisition cycle, issues a single \texttt{SyncRead} over a subgroup of $G$ motors (\textit{Motors polled per cycle}). Since the command is logged every control period without any bus access, only the measured part is subject to this sequencing. The result is an effective refresh rate, per motor, of the position measurement:
+On the figure~\ref{fig:svg_selection}, the SVG diagram turns each joint into a clickable dot whose color reflects the motor state (selected, online, offline). The list of chosen IDs becomes the \texttt{read\_ids} parameter passed to the firmware when the motion starts. On the embedded side, a round-robin cursor walks this list and, at each acquisition cycle, issues a single \texttt{SyncRead} over a subgroup of $G$ motors (\textit{Motors polled per cycle}). Since the command is logged every control period without any bus access, only the measured part is subject to this sequencing, so the result is an effective refresh rate, per motor, of the position measurement:
 \begin{equation}
 f_{fb} = \frac{f_{play}}{K \times \left\lceil \dfrac{N}{G} \right\rceil}
 \end{equation}
-where $f_{play}$ is the playback rate, $K$ the sampling stride (\textit{feedback every $K$ frames}), $N$ the number of selected motors and $G$ the subgroup width polled per cycle. These two levers (spatial via $N$, temporal via $K$ and $G$) let us explicitly trade telemetry density against motion smoothness, without ever letting the bus occupancy exceed $t_{bus} \approx G \times 4~\text{ms}$. Finally, so that the very first recorded frame always holds a truly measured position (and not a sentinel value), a single complete read of all selected motors is done just before playback starts, run only once, outside the real-time loop, it does not affect the control rate.
+where $f_{play}$ is the playback rate, $K$ the sampling stride (\textit{feedback every $K$ frames}), $N$ the number of selected motors and $G$ the subgroup width polled per cycle. These two variables allow us to trade telemetry density against motion smoothness, without ever letting the bus occupancy exceed $t_{bus} \approx G \times 4~\text{ms}$.
 
 
-This setup is rounded out by monitoring the safety-critical quantities. The current drawn by each motor, its supply voltage and its temperature are read during the bus scan (previous section), the total bus current is aggregated continuously, and the microcontroller's own temperature is shown permanently on the dashboard. These indicators let us catch a joint overheating or an abnormal current draw early, the classic symptom of a mechanical jam under hydrodynamic load, before it turns into a hardware failure.
+%This setup is rounded out by monitoring the safety-critical quantities. The current drawn by each motor, its supply voltage and its temperature are read during the bus scan (previous section), the total bus current is aggregated continuously, and the microcontroller's own temperature is shown permanently on the dashboard. These indicators let us catch a joint overheating or an abnormal current draw early, the classic symptom of a mechanical jam under hydrodynamic load, before it turns into a hardware failure.
 
 So thanks to this temporal and structural organization, the \textit{stride} per record is reduced to $16 + 10N$ bytes. The total RAM size of the binary buffer, noted $M$, therefore depends on the number of selected motors $N$, the total number of frames $F$ of the trajectory, and the sampling interval $K$ (one frame recorded every $K$ frames). The generic formula is:
 \begin{equation}
@@ -523,7 +525,7 @@ To estimate the memory load in the most demanding scenario (full recording with 
 M(21, 144, 1) &= 32544 \text{ bytes}
 \end{align*}
 
-Even in this worst case, the buffer needs only $\approx 32.54 \text{ kB}$ of RAM, entirely negligible next to the 2 MB allocated on the chip. At the end of a run, this compact binary block is transferred to the web browser. The JavaScript on the client computer then does the heavy lifting: it decodes the binary, builds the full \texttt{.csv} text file, and automatically triggers the offline download for the user.
+Even in this worst case, the buffer needs only $\approx 32.54 \text{ kB}$ of RAM, entirely negligible next to the 2 MB allocated on the chip. At the end of a run, this compact binary block is transferred to the web browser and then the JavaScript on the client computer decodes the binary, builds the full \texttt{.csv} text file, and automatically triggers the offline download for the user.
 
 
 \section{Motor Tests and Main Board Configuration}
@@ -1057,7 +1059,7 @@ This setting brings together the three goals: full telemetry of the 21 joints, a
 
 
 \section{Motion Kinematics and Interpolation}
-
+\label{sec:method_interpolation}
 \subsection{The Problem}
 
 Although the new hardware configuration (described in Section 3) allows control at 200 Hz, its development took significant time to design and deliver. During that wait, the pool tests had to run on the old configuration, capped at very low frequencies (between 36 Hz and 50 Hz) because of a low baud rate.\\
@@ -1565,15 +1567,15 @@ End of the internship!
 
 \bibitem{nakashimalab_website} M. NAKASHIMA. "Motomu Nakashima Laboratory - Research Projects." Accessed on June 8, 2026. URL: \url{https://www.hei.sc.e.titech.ac.jp/nakashima_labo/motomu/index2.html}.
 
-\bibitem{m5stack_atoms3} M5STACK TECHNOLOGY CO., LTD. "ATOM S3 Official Documentation." Accessed on June 12, 2026. URL: \url{https://docs.m5stack.com/en/core/AtomS3}.
+\bibitem{m5stack_atoms3} M5STACK TECHNOLOGY CO., LTD. "ATOM S3 Official Documentation." Accessed on June 8, 2026. URL: \url{https://docs.m5stack.com/en/core/AtomS3}.
 
-\bibitem{m5stack_atoms3r} M5STACK TECHNOLOGY CO., LTD. "ATOM S3R Official Documentation." Accessed on June 15, 2026. URL: \url{https://docs.m5stack.com/en/core/AtomS3R}.
+\bibitem{m5stack_atoms3r} M5STACK TECHNOLOGY CO., LTD. "ATOM S3R Official Documentation." Accessed on June 8, 2026. URL: \url{https://docs.m5stack.com/en/core/AtomS3R}.
 
 \bibitem{dynamixel_x_manual} ROBOTIS CO., LTD. "Dynamixel X-Series Control Table and Protocol 2.0 (e-Manual)." Accessed on June 19, 2026. URL: \url{https://emanual.robotis.com/docs/en/dxl/x/}.
 
-\bibitem{whatwg_sse} WHATWG. "HTML Living Standard --- Server-Sent Events." Accessed on June 22, 2026. URL: \url{https://html.spec.whatwg.org/multipage/server-sent-events.html}.
+\bibitem{whatwg_sse} WHATWG. "HTML Living Standard --- Server-Sent Events." Accessed on June 12, 2026. URL: \url{https://html.spec.whatwg.org/multipage/server-sent-events.html}.
 
-\bibitem{chartjs} CHART.JS CONTRIBUTORS. "Chart.js --- Open source HTML5 charting library." Accessed on June 27, 2026. URL: \url{https://www.chartjs.org/docs/latest/}.
+\bibitem{chartjs} CHART.JS CONTRIBUTORS. "Chart.js --- Open source HTML5 charting library." Accessed on June 12, 2026. URL: \url{https://www.chartjs.org/docs/latest/}.
 
 \bibitem{threejs} THREE.JS AUTHORS. "Three.js --- JavaScript 3D library." Accessed on July 2, 2026. URL: \url{https://threejs.org/docs/}.
 
@@ -1581,15 +1583,15 @@ End of the internship!
 
 \bibitem{m5stack_atom_hub_proto} M5STACK TECHNOLOGY CO., LTD. "ATOM HUB Proto Kit --- Documentation." Accessed on July 12, 2026. URL: \url{https://docs.m5stack.com/en/atom/atom_hub_proto}.
 
-\bibitem{pololu_d24v10f5} POLOLU CORPORATION. "Pololu 5V, 1A Step-Down Voltage Regulator D24V10F5." Accessed on July 18, 2026. URL: \url{https://www.pololu.com/product/2831}.
+\bibitem{pololu_d24v10f5} POLOLU CORPORATION. "Pololu 5V, 1A Step-Down Voltage Regulator D24V10F5." Accessed on July 12, 2026. URL: \url{https://www.pololu.com/product/2831}.
 
 \bibitem{dynamixel_xw430t200} ROBOTIS CO., LTD. "DYNAMIXEL XW430-T200-R (e-Manual)." Accessed on July 21, 2026. URL: \url{https://emanual.robotis.com/docs/en/dxl/x/xw430-t200/}.
 
-\bibitem{dynamixel_xw540t140} ROBOTIS CO., LTD. "DYNAMIXEL XW540-T140-R (e-Manual)." Accessed on July 25, 2026. URL: \url{https://emanual.robotis.com/docs/en/dxl/x/xw540-t140/}.
+\bibitem{dynamixel_xw540t140} ROBOTIS CO., LTD. "DYNAMIXEL XW540-T140-R (e-Manual)." Accessed on July 21, 2026. URL: \url{https://emanual.robotis.com/docs/en/dxl/x/xw540-t140/}.
 
-\bibitem{dynamixel_xw540t260} ROBOTIS CO., LTD. "DYNAMIXEL XW540-T260-R (e-Manual)." Accessed on July 28, 2026. URL: \url{https://emanual.robotis.com/docs/en/dxl/x/xw540-t260/}.
+\bibitem{dynamixel_xw540t260} ROBOTIS CO., LTD. "DYNAMIXEL XW540-T260-R (e-Manual)." Accessed on July 21, 2026. URL: \url{https://emanual.robotis.com/docs/en/dxl/x/xw540-t260/}.
 
-\bibitem{dynamixel_xm540w150} ROBOTIS CO., LTD. "DYNAMIXEL XM540-W150-R (e-Manual)." Accessed on July 30, 2026. URL: \url{https://emanual.robotis.com/docs/en/dxl/x/xm540-w150/}.
+\bibitem{dynamixel_xm540w150} ROBOTIS CO., LTD. "DYNAMIXEL XM540-W150-R (e-Manual)." Accessed on July 21, 2026. URL: \url{https://emanual.robotis.com/docs/en/dxl/x/xm540-w150/}.
 
 \end{thebibliography}
 
