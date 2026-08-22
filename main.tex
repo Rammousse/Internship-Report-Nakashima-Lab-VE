@@ -691,7 +691,7 @@ This represents the final state of the controller as a single soldered board sec
 
 \subsection{Results at High Baud Rate}
 
-With this new assembly, taking back control of the EN pin, the transmit/receive switch happens with no latency at all. I was able to raise the baud rate to \textbf{3 Mbps} with perfect motor detection and zero packet loss. Freeing up this bandwidth drastically cuts the bus occupancy time: the cost of polling one motor, which reached 3 to 4\,ms on the slow, auto-direction bus (previous section), collapses here to the hundred-microsecond scale. This reduction, combined with the lower \textit{Return Delay Time} now allowed by explicit direction control, is what finally makes a high-frequency control loop reachable.
+With this new assembly, taking back control of the EN pin, the transmit/receive switch happens with no latency at all. I was able to raise the baud rate to \textbf{3 Mbps} with perfect motor detection and zero packet loss. Freeing up this bandwidth drastically cuts the bus occupancy time, so the cost of polling one motor, which reached 3 to 4\,ms on the slow, auto-direction bus (previous section), collapses here to the hundred-microsecond scale. This reduction, combined with the lower \textit{Return Delay Time} now allowed by explicit direction control, is what finally makes a high-frequency control loop reachable.
 
 \begin{figure}[H]
     \centering
@@ -700,9 +700,45 @@ With this new assembly, taking back control of the EN pin, the transmit/receive 
     \label{fig:graph_200hz}
 \end{figure}
 
-As Figure \ref{fig:graph_200hz} shows, the running system behaves excellently. We reach a real frequency of \textbf{190.7 Hz} for a 200.0 Hz setpoint. Above all, unlike the old iterations where trajectory tracking was catastrophic, the measured positions (in orange) now sit perfectly on top of the command sent (in blue). The robot finally has an ultra-responsive control loop, which is essential for the next developments on the swimming dynamics.
+As the figure \ref{fig:graph_200hz} shows, the running system behaves excellently. We reach a real frequency of \textbf{190.7 Hz} for a 200.0 Hz setpoint. Above all, unlike the old iterations where trajectory tracking was catastrophic, the measured positions (in orange) now sit perfectly on top of the command sent (in blue). The robot finally has an ultra-responsive control loop, which is essential for the next developments on the swimming dynamics.
 
-With tracking validated, it remained to quantify the price of telemetry on the loop rate and as established earlier, reading states with \texttt{SyncRead} is inherently sequential on a \textit{half-duplex} bus: after a single broadcast instruction, the polled motors answer one after another~\cite{dynamixel_x_manual}. The bus occupancy per read therefore grows with the number of logged motors $N$. To isolate this factor, I ran a campaign where \emph{all} the selected motors are polled \emph{every $K = 3$ frames} (a single \texttt{SyncRead} pass per read), varying only their number $N$, from 1 to 5, with the setpoint held at 200\,Hz.
+With tracking validated, it remained to quantify the price of telemetry on the loop rate and as established earlier, reading states with \texttt{SyncRead} is sequential on a \textit{half-duplex} bus, in fact, after a single broadcast instruction, the polled motors answer one after another~\cite{dynamixel_x_manual}. The bus occupancy per read therefore grows with the number of logged motors $N$. To isolate this factor, I ran a campaign where \emph{all} the selected motors are polled \emph{every $K = 3$ frames} (a single \texttt{SyncRead} pass per read), varying only their number $N$, from 1 to 5, with the setpoint held at 200\,Hz.
+
+\iffalse
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{graphiques/log_1mot_200Hz.png}
+        \caption{$N = 1$ motor $\rightarrow$ 191.6 Hz.}
+        \label{fig:sweep1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{graphiques/log_3mot_200Hz.png}
+        \caption{$N = 3$ motors $\rightarrow$ 189.5 Hz.}
+        \label{fig:sweep3}
+    \end{subfigure}
+    \caption{Effect of the number of logged motors $N$ on control frequency for 1 and 3 motors (200\,Hz and $K = 3$ frames).}
+    \label{fig:sweep_motors_part1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{graphiques/log_4mot_200Hz.png}
+        \caption{$N = 4$ motors $\rightarrow$ 187.7 Hz.}
+        \label{fig:sweep4}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{graphiques/log_5mot_200Hz.png}
+        \caption{$N = 5$ motors $\rightarrow$ 172.8 Hz.}
+        \label{fig:sweep5}
+    \end{subfigure}
+    \caption{Effect of the number of logged motors $N$ on control frequency for 4 and 5 motors (200\,Hz and $K = 3$ frames).}
+    \label{fig:sweep_motors_part2}
+\end{figure}
+\fi
 
 \begin{figure}[H]
     \centering
@@ -727,19 +763,16 @@ With tracking validated, it remained to quantify the price of telemetry on the l
     \hfill
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{graphiques/log_5mot_200Hz.png}
-        \caption{$N = 5$ motors $\rightarrow$ 172.8 Hz (loss of linearity).}
+        \caption{$N = 5$ motors $\rightarrow$ 172.8 Hz.}
         \label{fig:sweep5}
     \end{subfigure}
-    \caption{Effect of the number of logged motors $N$ on the real control frequency, at constant setpoint (200\,Hz) and fixed sampling ($K = 3$ frames).}
+    \caption{Effect of the number of logged motors $N$ on control frequency (200\,Hz and $K = 3$ frames).}
     \label{fig:sweep_motors}
 \end{figure}
 
-As Figure~\ref{fig:sweep_motors} shows, the control frequency drops from 191.6\,Hz with a single motor to 172.8\,Hz with five, with a particularly sharp fall at the fifth. One point is essential: the \emph{tracking} stays excellent in every case. Only the loop \emph{rate} is affected, not the command/position fidelity.
+\vspace{-0.2cm}
 
-
-Looking this result we can wonder if this degradation is an inevitable price of logging, or does it appear only in a particular regime. To settle it, I reran the exact same campaign (same motors, same $K = 3$, same $N = 1 \ldots 5$ sweep) at lower setpoint rates: 36, 72 and 100\,Hz and the conclusion is clear-cut, and perfectly readable in Figure~\ref{fig:motor_logging_sweep} as in Table~\ref{tab:matrix}: \textbf{at low frequency, the number of logged motors has no measurable effect on the control frequency}. At 36\,Hz, the five configurations all give 35.9--36.0\,Hz, at 100\,Hz, they stay grouped around 96\,Hz, whether we log one motor or five, this clearly shows that the problem occurs primarily at high frequencies.
-
-\iffalse
+As we can see in the figure~\ref{fig:sweep_motors}, the control frequency drops from 191.6\,Hz with a single motor to 172.8\,Hz with five, with a particularly sharp fall at the fifth. So the \emph{tracking} stays excellent in every case and only the loop \emph{rate} is affected, not the command/position fidelity. Looking at this result we can wonder if this degradation is an inevitable price of logging, or does it appear only in a particular regime. To settle it, I reran the exact same campaign at lower setpoint rates, at 36, 72 and 100\,Hz :
 
 \begin{figure}[H]
     \centering
@@ -786,8 +819,8 @@ Looking this result we can wonder if this degradation is an inevitable price of 
     \label{fig:highfreq}
 \end{figure}
 
-\fi
 
+\iffalse
 \begin{figure}[H]
     \centering
     % Première ligne : 36 Hz
@@ -842,7 +875,10 @@ Looking this result we can wonder if this degradation is an inevitable price of 
     \caption{Sweep of the number of logged motors at different frequencies.}
     \label{fig:motor_logging_sweep}
 \end{figure}
+\fi
 
+
+As we can see in figure~\ref{fig:lowfreq} and in the table~\ref{tab:matrix}, \textbf{at low frequency, the number of logged motors has no measurable effect on the control frequency}. At 36\,Hz, the five configurations all give 35.9--36.0\,Hz, at 100\,Hz, they stay grouped around 96\,Hz, whether we log one motor or five, this clearly shows that the problem occurs primarily at high frequencies.
 
 \begin{table}[H]
 \centering
@@ -860,9 +896,9 @@ Looking this result we can wonder if this degradation is an inevitable price of 
 \label{tab:matrix}
 \end{table}
 
-As we can see in the table, even below the degradation threshold, the real frequency stays slightly under the setpoint, 96.2\,Hz for a 100\,Hz target, 68\,Hz for 72\,Hz. This deficit, on the order of a few percent, is also \emph{independent of $N$} (the corresponding columns are flat). It does not come from telemetry, then, but from the incompressible load run on \emph{every} frame: the broadcast \texttt{SyncWrite}, the command interpolation, the IMU acquisition and servicing the 20\,Hz SSE stream. This background load, which we will write $t_{hk}$, caps the reachable rate regardless of how many motors are read, it should be carefully distinguished from the extra cost, variable in $N$, of the \texttt{SyncRead} read. These two contributions are exactly the two terms of the model that follows.
+As we can see in the table, even below the degradation threshold, the real frequency stays slightly under the setpoint, 96.2\,Hz for a 100\,Hz target, 68\,Hz for 72\,Hz. This deficit, on the order of a few percent, is also \emph{independent of $N$} (the corresponding columns are flat). It does not come from telemetry, then, but from the incompressible load run on \emph{every} frame, so the broadcast \texttt{SyncWrite}, the command interpolation, the IMU acquisition and servicing the 20\,Hz SSE stream. This background load, which we will write $t_{hk}$, caps the reachable rate regardless of how many motors are read, it should be carefully distinguished from the extra cost, variable in $N$, of the \texttt{SyncRead} read. These two contributions are exactly the two terms of the model that follows.
 
-These behaviors, a baseline deficit independent of $N$, degradation in $N$ only at high frequency, are explained by a single model: a \emph{time budget per frame}. The control loop is a fixed-period scheduler targeting $T_c = 1/f_c$. Each frame runs the background load $t_{hk}$ introduced above. Once every $K$ frames, the \texttt{SyncRead} pass of the $N$ motors is added, whose sequential bus occupancy splits into a fixed term and a term proportional to the number of responses:
+These behaviors, a baseline deficit independent of $N$, degradation in $N$ only at high frequency, are explained by a single model, a \emph{time budget per frame}. The control loop is a fixed-period scheduler targeting $T_c = 1/f_c$. Each frame runs the background load $t_{hk}$ introduced above. Once every $K$ frames, the \texttt{SyncRead} pass of the $N$ motors is added, whose sequential bus occupancy splits into a fixed term and a term proportional to the number of responses:
 \begin{equation}
 \tau_{\text{read}}(N) = t_0 + N\, t_m ,
 \label{eq:tauread}
@@ -906,8 +942,39 @@ The point $N = 5$ at 200\,Hz (last row of Table~\ref{tab:model}) breaks sharply 
 
 \vspace{0.5cm}
 
-The last check needed in the degraded regime (200\,Hz, $N = 5$) was the rate loss stationary, or does it worsen over time (accumulated delay, drift)? So I replayed this configuration while progressively lengthening the recording duration, from $\sim$7\,s to $\sim$47\,s (Figure~\ref{fig:cumulatif}). The result is unambiguous: across all these runs, the control frequency stays confined to $173.8 \pm 0.6$\,Hz, a spread under $1\%$ and \emph{independent} of the duration. The degradation is therefore not cumulative: it is a fixed extra cost per read cycle, re-evaluated identically at each pass, with no memory or accumulated delay, and the command/position tracking repeats identically from one swimming cycle to the next. This confirms the time-invariance of model~\eqref{eq:budget}, where $f_{\text{real}}$ depends only on $N$, $K$ and $f_c$, not on the elapsed time.
+The last check needed in the degraded regime (200\,Hz, $N = 5$) was the rate loss stationary, or does it worsen over time (accumulated delay, drift)? So I replayed this configuration while progressively lengthening the recording duration, from $\sim$7\,s to $\sim$47\,s (Figure~\ref{fig:cumulatif_part1} and Figure~\ref{fig:cumulatif_part2}). The result is unambiguous: across all these runs, the control frequency stays confined to $173.8 \pm 0.6$\,Hz, a spread under $1\%$ and \emph{independent} of the duration. The degradation is therefore not cumulative: it is a fixed extra cost per read cycle, re-evaluated identically at each pass, with no memory or accumulated delay, and the command/position tracking repeats identically from one swimming cycle to the next. This confirms the time-invariance of model~\eqref{eq:budget}, where $f_{\text{real}}$ depends only on $N$, $K$ and $f_c$, not on the elapsed time.
 
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{graphiques/log_5mot_dur1.png}
+        \caption{$\sim$14\,s $\rightarrow$ 173.8 Hz.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{graphiques/log_5mot_dur2.png}
+        \caption{$\sim$23\,s $\rightarrow$ 174.6 Hz.}
+    \end{subfigure}
+    \caption{Tests at different numbers of cycles at 200\,Hz, $N = 5$ (14\,s and 23\,s durations).}
+    \label{fig:cumulatif_part1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{graphiques/log_5mot_dur3.png}
+        \caption{$\sim$35\,s $\rightarrow$ 173.8 Hz.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{graphiques/log_5mot_dur4.png}
+        \caption{$\sim$47\,s $\rightarrow$ 174.1 Hz.}
+    \end{subfigure}
+    \caption{Tests at different numbers of cycles at 200\,Hz, $N = 5$ (35\,s and 47\,s durations).}
+    \label{fig:cumulatif_part2}
+\end{figure}
+
+\iffalse
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.49\textwidth}
@@ -934,6 +1001,8 @@ The last check needed in the degraded regime (200\,Hz, $N = 5$) was the rate los
     \label{fig:cumulatif}
 \end{figure}
 
+\fi
+
 In the end, moving to high throughput does more than improve tracking : it makes the system's timing behavior \emph{predictable and controllable}. The real control frequency is described by a simple, validated model, with two regimes separated by the threshold $f^\star$, so it can be fixed deterministically at the design stage of a test, by choosing the (rate, number of logged motors) pair knowingly. This predictability is a sound basis for the later study of the swimming dynamics, where fine control of the command rate is essential.
 
 
@@ -944,8 +1013,40 @@ With the time-budget model established and validated on the five-motor bench, it
 
 All these tests were run at a setpoint rate of 100\,Hz and this choice follows directly from the budget model of the previous section. At 200\,Hz, the per-frame budget is only $T_c = 5$\,ms: it barely covers the background load and saturates as soon as more than four motors are logged, unusable for monitoring the whole body. Going down to 36 or 72\,Hz, on the other hand, would waste control bandwidth that is essential for the fine detail of the swimming dynamics. 100\,Hz offers the best compromise: its $T_c = 10$\,ms budget is wide enough to absorb the reading of many motors without collapsing the rate, while keeping a high control frequency. The measurements below confirm it, which is why it was kept as the reference rate.
 
-Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first raised the number of logged motors progressively (Figure~\ref{fig:swum_scaling}). Up to six motors, logging is essentially \emph{free}: the real frequency stays capped at $\approx 96$\,Hz (95.9--96.2\,Hz), that is, at the background deficit alone, independent of $N$, already identified. The read fits entirely within the 10\,ms margin. It was even possible to log all \textbf{21 motors} at once, the telemetry of the whole body in a single run, a particularly satisfying result. However, at that number and with such tight sampling (every 3 frames), reading the 21 sequential responses overflows the budget by a wide margin: the rate collapses to 69.3\,Hz and the real cycle time stretches to 2.60\,s (Figure~\ref{fig:swum_21_3f}). Finally the whole body is recorded, but at the price of a loop far too slow.
+Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first raised the number of logged motors progressively (Figure~\ref{fig:swum_scaling_part1} and \ref{fig:swum_scaling_part2}). Up to six motors, logging is essentially \emph{free}: the real frequency stays capped at $\approx 96$\,Hz (95.9--96.2\,Hz), that is, at the background deficit alone, independent of $N$, already identified. The read fits entirely within the 10\,ms margin. It was even possible to log all \textbf{21 motors} at once, the telemetry of the whole body in a single run, a particularly satisfying result. However, at that number and with such tight sampling (every 3 frames), reading the 21 sequential responses overflows the budget by a wide margin: the rate collapses to 69.3\,Hz and the real cycle time stretches to 2.60\,s (Figure~\ref{fig:swum_21_3f}). Finally the whole body is recorded, but at the price of a loop far too slow.
 
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_1mot_3f.png}
+        \caption{1 motor $\rightarrow$ 96.2 Hz.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_3mot_3f.png}
+        \caption{3 motors $\rightarrow$ 96.2 Hz.}
+    \end{subfigure}
+    \caption{Tests of the number of logged motors on the SWUMANOID (1 and 3 motors), 100\,Hz, commanded cycle 2.05\,s, sampling every 3 frames.}
+    \label{fig:swum_scaling_part1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_6mot_3f.png}
+        \caption{6 motors $\rightarrow$ 95.9 Hz.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_3f.png}
+        \caption{21 motors $\rightarrow$ 69.3 Hz (real cycle 2.60\,s).}
+        \label{fig:swum_21_3f}
+    \end{subfigure}
+    \caption{Tests of the number of logged motors on the SWUMANOID (6 and 21 motors), 100\,Hz, commanded cycle 2.05\,s, sampling every 3 frames.}
+    \label{fig:swum_scaling_part2}
+\end{figure}
+
+\iffalse
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.48\textwidth}
@@ -972,6 +1073,7 @@ Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first ra
     \caption{Tests of the number of logged motors on the SWUMANOID, 100\,Hz, commanded cycle 2.05\,s, sampling every 3 frames.}
     \label{fig:swum_scaling}
 \end{figure}
+\fi
 
 With the whole body loggable but the loop too slow, the natural lever, already anticipated by the model, is to \emph{reduce the frequency of the reads} rather than their content. So I raised the sampling interval from 3 to 6 frames, spacing out the \texttt{SyncRead} passes to give the bus more time between two queries. The effect is spectacular (Figure~\ref{fig:swum_interval}): at 21 motors, the rate climbs from 69.3\,Hz back up to \textbf{89.9\,Hz}, and at 11 motors it even returns to the background ceiling ($\approx 96$\,Hz). Quantitatively, the amortized read overhead per frame drops from $\approx 4.4$\,ms (at 3 frames) to $\approx 1.1$\,ms (at 6 frames): a reduction that beats the factor of two expected from simply doubling the interval, since the wider spacing also gives the bus a recovery time that lightens the cost of each read. Doubling the sampling interval thus restores most of the rate while keeping full coverage of the 21 motors.
 
@@ -990,8 +1092,40 @@ With the whole body loggable but the loop too slow, the natural lever, already a
     \label{fig:swum_interval}
 \end{figure}
 
-With 21 motors logged every 6 frames, the $\approx 90$\,Hz rate is satisfying, but the real cycle time stays above the setpoint (2.28\,s for a commanded 2.05\,s). The reason is direct: the trajectory holds a fixed number of frames ($\text{cycle} \times \text{rate}$), and replaying them at 90\,Hz instead of 100\,Hz mechanically stretches the duration by a factor of $100/90 \approx 1.11$. So, as a last step, I varied only the commanded cycle time, with every other parameter frozen (Figure~\ref{fig:swum_cycle} and Table~\ref{tab:swum_cycle}). The observation confirms the model: the real frequency stays \emph{invariant}, locked around 89--90\,Hz, whatever the cycle time. The cycle time changes only the total duration, not the rate. It then becomes possible to \emph{pre-compensate} for the known deficit: to obtain the physically targeted swimming cycle of 2.0\,s, we just command a shorter cycle of 1.80\,s, which, stretched by the $1/0.90$ factor, gives exactly 2.00\,s real. This is the best operating point.
+With 21 motors logged every 6 frames, the $\approx 90$\,Hz rate is satisfying, but the real cycle time stays above the setpoint (2.28\,s for a commanded 2.05\,s). The reason is direct: the trajectory holds a fixed number of frames ($\text{cycle} \times \text{rate}$), and replaying them at 90\,Hz instead of 100\,Hz mechanically stretches the duration by a factor of $100/90 \approx 1.11$. So, as a last step, I varied only the commanded cycle time, with every other parameter frozen (Figure~\ref{fig:swum_cycle_part1}, Figure~\ref{fig:swum_cycle_part2}  and Table~\ref{tab:swum_cycle}). The observation confirms the model: the real frequency stays \emph{invariant}, locked around 89--90\,Hz, whatever the cycle time. The cycle time changes only the total duration, not the rate. It then becomes possible to \emph{pre-compensate} for the known deficit: to obtain the physically targeted swimming cycle of 2.0\,s, we just command a shorter cycle of 1.80\,s, which, stretched by the $1/0.90$ factor, gives exactly 2.00\,s real. This is the best operating point.
 
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f_cmd1p80.png}
+        \caption{Commanded cycle 1.80\,s $\rightarrow$ real cycle \textbf{2.00\,s} (89.8 Hz).}
+        \label{fig:swum_best}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f_cmd1p90.png}
+        \caption{Commanded cycle 1.90\,s $\rightarrow$ real cycle 2.14\,s (88.9 Hz).}
+    \end{subfigure}
+    \caption{Sweep of the commanded cycle time (1.80\,s and 1.90\,s), 100\,Hz, 21 motors, sampling every 6 frames.}
+    \label{fig:swum_cycle_part1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f_cmd2p00.png}
+        \caption{Commanded cycle 2.00\,s $\rightarrow$ real cycle 2.24\,s (89.1 Hz).}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f.png}
+        \caption{Commanded cycle 2.05\,s $\rightarrow$ real cycle 2.28\,s (89.9 Hz).}
+    \end{subfigure}
+    \caption{Sweep of the commanded cycle time (2.00\,s and 2.05\,s), 100\,Hz, 21 motors, sampling every 6 frames.}
+    \label{fig:swum_cycle_part2}
+\end{figure}
+
+\iffalse
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.48\textwidth}
@@ -1018,6 +1152,8 @@ With 21 motors logged every 6 frames, the $\approx 90$\,Hz rate is satisfying, b
     \caption{Sweep of the commanded cycle time (100\,Hz, 21 motors, sampling every 6 frames).}
     \label{fig:swum_cycle}
 \end{figure}
+
+\fi
 
 \begin{table}[H]
 \centering
