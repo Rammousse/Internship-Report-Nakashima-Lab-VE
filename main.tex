@@ -67,47 +67,11 @@ The Nakashima Laboratory, led by Professor Motomu Nakashima, belongs to the \tex
 
 Its focus is biomechanics and sports engineering. The main goal is to use robotics and computation to better understand, simulate and reproduce the complex dynamics of the human body \cite{nakashimalab_website}. Working from mathematical models and detailed simulations, such as the SWUM model, which couples rigid-body dynamics with unsteady fluid forces \cite{nakashima2007swum}, the team analyzes and optimizes human motion in different environments. The work spans several scales, from the macroscopic study of fluid forces to a fine musculo-skeletal analysis of physical effort, as shown in the figure \ref{fig:simulations_labo}.
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.42\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{Introduction/Nakashima_site_1.png}
-        \caption{SWUM model with fluid force vectors.}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.53\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{Introduction/Nakashima_site_5.png}
-        \caption{Musculo-skeletal model of swimming.}
-    \end{subfigure}
-    \caption{Simulations used in the laboratory to study body dynamics.}
-    \label{fig:simulations_labo}
-\end{figure}
+
 
 The research is not limited to water, in fact it reaches into many everyday and athletic biomechanical problems for example the body dynamics during wheelchair tennis matches, the study of mass distribution and body management during sleep, and the modeling of effort in redundant human tasks.
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{Introduction/Nakashima_site_6.png}
-        \caption{Biomechanical measurement device.}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{Introduction/Nakashima_site_4.png}
-        \caption{Biomimetic aquatic robot.}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{Introduction/Nakashima_site_2.png}
-        \caption{Robotic prototype in a pool.}
-    \end{subfigure}
-    \caption{Physical experimental platforms developed by the laboratory \cite{nakashimalab_website}.}
-    \label{fig:prototypes_labo}
-\end{figure}
+
 
 To test these models in the real world, the lab designs and runs a wide range of experimental devices, shown in the figure \ref{fig:prototypes_labo}. They range from wearable measurement systems for the upper limbs to biomimetic aquatic robots, and up to a full swimming humanoid robot, the SWUMANOID. This robot grew out of years of \textit{Bio-Robotics} research, and it is the project I joined.
 
@@ -118,71 +82,21 @@ When I arrived at the lab, I joined the SWUMANOID project. Its purpose is to get
 
 To sidestep all of this, the lab built a complete swimming humanoid robot that acts as a stand-in experimental platform \cite{chung2014swimming} \cite{nakashima2016realization}. The base model was designed by reproducing the body geometry of an elite swimmer captured in a 3D scan \cite{chung2013free} \cite{nakashima2016realization}. Figure \ref{fig:modeles_3d} shows this biomimetic approach, comparing the 3D mesh of a real swimmer with the CAD shell adapted for the SWUMANOID.
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[height=9cm]{Introduction/Model_3D_real_swimmer.png}
-        \caption{3D scan of the swimmer}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[height=9cm]{Introduction/SWUMANOID_Model_3D.png}
-        \caption{3D model adapted for the robot}
-    \end{subfigure}
-    \caption{Robot geometry derived from the morphology of an elite swimmer.}
-    \label{fig:modeles_3d}
-\end{figure}
+
 
 When I joined the project, it was in a transition phase, the previous SWUMANOID, which swam perfectly, had suffered irreversible damage and could no longer be used. A brand-new version, starting from scratch, had been launched only a few months earlier. This full rebuild covered the structure, the skeleton, the 3D printing of every part, new motors, and a rewrite of the motion files. Figure \ref{fig:robot_moteurs} shows this new iteration and the layout of its actuation.
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[height=7cm]{Introduction/SWUMANOID_Front_Picture.png}
-        \caption{New version of the SWUMANOID}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[height=7cm]{Introduction/SWUMANOID_Motors_Ids.png}
-        \caption{Motor map and IDs}
-    \end{subfigure}
-    \caption{Hardware and kinematic overview of the robot.}
-    \label{fig:robot_moteurs}
-\end{figure}
+
 
 Building the robot at full human size is not practical, so its scale was reduced. The robot is roughly 50\% of the real swimmer's size \cite{chung2013free} \cite{chung2014swimming}, but the arms of the new version were modeled at 60\% of full scale to make place for the new motors. These motors are more powerful and, above all, IP68-certified, so fully waterproof, which removes any risk of short circuits. The robot weighs about 7.3 kg, close to 10\% of an adult swimmer's weight, in line with the earlier models that weighed between 7.12 kg and 7.4 kg \cite{chung2013free} \cite{nakashima2016realization}.
 
 I joined the SWUMANOID team, a group of three where I work alongside my two supervisors, M. YANADORI and M. NAGATA. When I arrived, the team was finishing tests on new coatings for the 3D-printed parts and before that, the parts filled up with water, which changed the buoyancy and sank the robot. The multi-layer waterproofing process, detailed in the figure \ref{fig:waterproof}, was a decisive step for the integrity of the whole system. We settled on urethane as the coating for the PLA+ printed parts which solved the water infiltration problem, and the robot could finally float the moment I arrived, which had not been the case before.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.85\textwidth]{Introduction/Werproof_method.png}
-    \caption{Waterproofing protocol for the PLA+ parts.}
-    \label{fig:waterproof}
-\end{figure}
+
 
 Within our trio, the work is clearly split. My two supervisors focus on the theoretical and analytical study of motion, their research relies on the simulation software \textit{SWUMSUIT}. Built to implement the SWUM (Swimming Human Model) simulation model, it computes the absolute motion of the human body in water by solving the equations of motion of a rigid body, and estimates the fluid forces acting on the body from the input geometry and joint motions \cite{swumsuit2005}. The numerical results let us visualize the swimming dynamics and read the vector distribution of the propulsive forces, as the captures in the figure \ref{fig:swumsuit_sim} show.
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.43\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{Introduction/SWAM_simulation.png}
-        \caption{Simulation of the joint kinematics}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{Introduction/SWAM_simulation_with_force.png}
-        \caption{Fluid force vectors (in red)}
-    \end{subfigure}
-    \caption{Interface and renders of the \textit{SWUMSUIT} simulation software.}
-    \label{fig:swumsuit_sim}
-\end{figure}
+
 
 The SWUMSUIT interface can extract swimming data such as swimming speed, propulsive efficiency, and joint torques \cite{swumsuit2005}.
 \begin{itemize}
@@ -198,12 +112,7 @@ For me, my studies focus on the low-level and hardware control of the SWUMANOID.
 
 To keep up that pace and make our deployments safe, we have a room dedicated entirely to the project. There, the robot hangs in the air on a bar, which lets us send commands and check the joint motions dry before any immersion. As in the figure \ref{fig:air_test} shows, this suspension rig isolates the actuators so we can debug their mechanical response on its own. This is also where we manage all the hardware and 3D-print new parts to keep improving the robot.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.6\textwidth]{Introduction/Swumanoid_test_salle_en_l_air.png}
-    \caption{Suspended test rig in the laboratory.}
-    \label{fig:air_test}
-\end{figure}
+
 
 \subsection{Assigned Missions}
 
@@ -220,32 +129,17 @@ When I arrived, the previous system was heavily limited because the control freq
     \item \textbf{User Interface (UI) development:} Build a standalone HTML/JavaScript web page to interact with the robot easily. It secures the Wi-Fi connection, converts the motion files directly, and lets the operator tune the control parameters remotely on the fly.
 \end{itemize}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.6\textwidth]{Introduction/atoms3r_main_board.jpg}
-    \caption{New main board for the SWUMANOID (housed in its head).}
-    \label{fig:new_main_board_in_head}
-\end{figure}
+
 
 \subsubsection*{Running and optimizing the pool experiments}
 
 To test the software that we developped during each week we put the robot in a real environment, so the second half of my mission plays out in the field, during pool experiments, about twice a week. These sessions follow a strict protocol to yield reliable data.The figure \ref{fig:pool_experiment} shows the robot going into the water during one of these tests.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.7\textwidth]{Introduction/SWUMANOID_ready_to_swim_pool_room_experiment.png}
-    \caption{Free-swimming pool experiment with the SWUMANOID.}
-    \label{fig:pool_experiment}
-\end{figure}
+
 
 My job during these tests is to help the team prepare in the lab by weighing the robot, assembling the waterproof modules when needed, 3D-print parts for repairs or upgrades, and carrying the equipment to the pool. Once there, we set up the measurement system. That means laying measuring tapes along the water line to estimate the robot's spatial speed \cite{chung2013free}, configuring the control PC, and installing the tracking camera we need for the later kinematic analysis \cite{chung2013free}.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.6\textwidth]{Introduction/Salle_experience_dispositif.png}
-    \caption{Layout of the experiment recording setup.}
-    \label{fig:dispositif_experiment}
-\end{figure}
+
 
 During the experiment itself, I operate the SWUMANOID from the web interface I built. I swap trajectory files after each run and adjust control parameters like the sampling frequency or the stroke cycle time, testing different configurations to find the best trade-off between swimming speed and propulsive efficiency. In practice, these tests confirm the optimization models my supervisors compute in simulation \cite{nakashima2012optimizing}.
 
@@ -266,22 +160,7 @@ During the migration, I replaced this UDP stack with \textbf{HTTP}-based communi
 
 The original firmware had been written and validated for the \textbf{M5Stack AtomS3} development board \cite{m5stack_atoms3}. But to meet the new requirements, the hardware had just been upgraded to the \textbf{M5Stack AtomS3R} \cite{m5stack_atoms3r} right before I arrived, we can see the two microcontrollers in the figure \ref{fig:m5stack_comparison}.
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.4\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{partie2/atoms3_picture.png}
-        \caption{M5Stack AtomS3}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.4\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{partie2/atoms3r_picture.png}
-        \caption{M5Stack AtomS3R}
-    \end{subfigure}
-    \caption{Visual and technical comparison of the two microcontrollers.}
-    \label{fig:m5stack_comparison}
-\end{figure}
+
 
 Both boards share the same core architecture, the ESP32-S3 SoC, which gives them identical compute power and the same networking module (Wi-Fi/Bluetooth). They differ in how their chip is integrated and in their peripheral components. In fact, the AtomS3R uses a highly integrated "PICO" module that stacks extra memory without growing the board's footprint. The table \ref{tab:m5stack_diff} lays out all of these hardware characteristics.
 
@@ -561,31 +440,7 @@ To achieve the 200\,Hz control frequency target, the bus throughput needed to re
 
 Because the Dynamixel bus operates in half-duplex, a single A/B wire pair for both directions, the transceiver must constantly switch between transmit and receive modes via its Driver Enable (DE) pin, but the \textit{Atomic RS485} base does not expose this pin, relying instead on an internal automatic circuit to guess the data direction. While functional at low speeds, where a single bit lasts roughly 8.7 µs, this automatic switching is too slow for a 1 Mbps throughput, where a bit lasts $\approx 1$ µs. Consequently, the circuit fails to release the line fast enough, masking the start of the motor's \textit{Status Packet} reply. This turnaround latency previously required a deliberately high \textit{Return Delay Time} ($\approx 500$ µs)~\cite{dynamixel_x_manual}, a workaround incompatible with high-frequency control loops.
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.25\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{composants/atoms3r_pinout.png}
-        \caption{AtomS3R.}
-        \label{fig:comp_atoms3r}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.25\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{composants/MAX3485_avec_broche_EN.jpg}
-        \caption{RS-485 transceiver module.}
-        \label{fig:comp_rs485}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.25\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{composants/DCDC_converter.jpeg}
-        \caption{DC-DC converter (MP2307).}
-        \label{fig:comp_buck}
-    \end{subfigure}
-    \caption{Components of the new \textit{main board}.}
-    \label{fig:composants}
-\end{figure}
+
 
 Resolving this bottleneck required replacing the \textit{Atomic RS485} base with a custom hardware solution where the DE direction pin is explicitly driven by the microcontroller. To implement this, the two new components shown in Figure~\ref{fig:composants} were acquired. First, the architecture relies on a 3.3\,V RS-485 transceiver board with an exposed DE pin (MAX3485-type~\cite{max3485}). Furthermore, because the original base internally handled power regulation, this modification required adding a dedicated 12–16\,V to 5\,V step-down converter, implemented here with a compact MP2307 module~\cite{mp2307}.
 
@@ -596,41 +451,15 @@ On the software side, the PlatformIO bus driver was updated to leverage the hard
 
 When the components arrived, I assembled the new control board with the three active elements showing in the figure~\ref{fig:composants}, the AtomS3R microcontroller~\cite{m5stack_atoms3r}, the RS-485 transceiver module with an accessible direction pin, and the DC-DC step-down converter supplying the logic power.
 
-\newpage
-
 Above all, this new architecture made it possible, for the first time, to test the \emph{real} motors of the robot. In fact, the SWUMANOID is driven by three families of XW-series Dynamixel servomotors (waterproof, IP68 rating), spread across the body according to their torque needs presented in the figure~\ref{fig:swumanoid_map}: XW540-T140-R and XW540-T260-R~\cite{dynamixel_xw540t140,dynamixel_xw540t260} for the most heavily loaded joints, and XW430-T200-R~\cite{dynamixel_xw430t200} for the distal joints, all these motors are waterproof.
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.34\textwidth}
-        \centering
-        \includegraphics[height=6cm]{schemas/swumanoid_motor_map.png}
-        \caption{Motor layout on the SWUMANOID.}
-        \label{fig:map_body}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.24\textwidth}
-        \centering
-        \includegraphics[height=5cm]{composants/XW_series_motors_dynamixel.png}
-        \caption{XW-series Dynamixel.}
-        \label{fig:motor_xw}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.24\textwidth}
-        \centering
-        \includegraphics[height=5cm]{composants/xm540-w150.jpg}
-        \caption{XM-series Dynamixel.}
-        \label{fig:motor_xm}
-    \end{subfigure}
-    \caption{SWUMANOID motor configuration.}
-    \label{fig:swumanoid_map}
-\end{figure}
 
-So, to validate the hardware architecture under representative conditions, I built a test circuit combining the new components with a cluster of five \emph{real} Dynamixel motors from the robot with two XW430-T200-R, two XW540-T260-R and one XW540-T140-R. Each was given the ID matching its actual function in the SWUMANOID, so the bench faithfully reproduces a subset of the robot rather than an arbitrary assembly. The XW540-T140-R thus corresponds to a \textbf{shoulder joint}, whose behavior gets a detailed analysis in the results section. Unlike the first bench, limited to substitute motors, this configuration uses far more powerful and extremely responsive, they allow much better command tracking.
+
+So, to validate the hardware architecture under representative conditions, I built a test circuit combining the new components with a cluster of five \emph{real} Dynamixel motors from the robot with two XW430-T200-R, two XW540-T260-R and one XW540-T140-R. Each was given the ID matching its actual function in the SWUMANOID, so the bench faithfully reproduces a subset of the robot. The XW540-T140-R thus corresponds to a \textbf{shoulder joint}, whose behavior gets a detailed analysis in the results section. Unlike the first bench, limited to substitute motors, this configuration uses far more powerful and extremely responsive, they allow much better command tracking.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{schemas/schema_5_moteurs_haut_baudrate.png}
+    \includegraphics[width=0.7\textwidth]{schemas/schema_5_moteurs_haut_baudrate.png}
     \caption{New control circuit tested on the five XW motors.}
     \label{fig:circuit_test}
 \end{figure}
@@ -648,24 +477,7 @@ So the five-motor bench proved the electronics were sound but it was still a loo
 
 So I ordered two smaller parts shown in the figure~\ref{fig:new_components}. The first is a MINMAX M78AR05 step-down module, a tiny drop-in replacement for the bulky MP2307 that still delivers the same clean 5\,V rail~\cite{minmax_m78ar05}. The second is a compact soldering PCB, small enough to rest on the floor of the inner case.
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.4\textwidth}
-        \centering
-        \includegraphics[height=4cm]{composants/DCDC_converter_MINMAX.jpg}
-        \caption{MINMAX M78AR05 step-down converter.}
-        \label{fig:comp_minmax}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.4\textwidth}
-        \centering
-        \includegraphics[height=4cm]{composants/PCB_Board.jpg}
-        \caption{Compact soldering PCB (ElectroCookie).}
-        \label{fig:comp_pcb}
-    \end{subfigure}
-    \caption{The two smaller parts chosen to shrink the board down to size.}
-    \label{fig:new_components}
-\end{figure}
+
 
 Then, we moved the whole circuit off the breadboard and onto that PCB. The AtomS3R, the MAX3485, the little converter and the termination resistors were all soldered down and wired point to point, so nothing can pop loose when the lid is closed and the board came out small, flat and sturdy. It drops straight into the waterproof case, which in turn slots into the head we can see in figure~\ref{fig:final_board}.
 
@@ -1314,6 +1126,235 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
 
 \section{Annexes}
 
+\subsection{Figures and Diagrams}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.42\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Introduction/Nakashima_site_1.png}
+        \caption{SWUM model with fluid force vectors.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.53\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Introduction/Nakashima_site_5.png}
+        \caption{Musculo-skeletal model of swimming.}
+    \end{subfigure}
+    \caption{Simulations used in the laboratory to study body dynamics.}
+    \label{fig:simulations_labo}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Introduction/Nakashima_site_6.png}
+        \caption{Biomechanical measurement device.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Introduction/Nakashima_site_4.png}
+        \caption{Biomimetic aquatic robot.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Introduction/Nakashima_site_2.png}
+        \caption{Robotic prototype in a pool.}
+    \end{subfigure}
+    \caption{Physical experimental platforms developed by the laboratory \cite{nakashimalab_website}.}
+    \label{fig:prototypes_labo}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[height=6cm]{Introduction/Model_3D_real_swimmer.png}
+        \caption{3D scan of the swimmer}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[height=6cm]{Introduction/SWUMANOID_Model_3D.png}
+        \caption{3D model adapted for the robot}
+    \end{subfigure}
+    \caption{Robot geometry derived from the morphology of an elite swimmer.}
+    \label{fig:modeles_3d}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[height=6cm]{Introduction/SWUMANOID_Front_Picture.png}
+        \caption{New version of the SWUMANOID}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[height=6cm]{Introduction/SWUMANOID_Motors_Ids.png}
+        \caption{Motor map and IDs}
+    \end{subfigure}
+    \caption{Hardware and kinematic overview of the robot.}
+    \label{fig:robot_moteurs}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{Introduction/Werproof_method.png}
+    \caption{Waterproofing protocol for the PLA+ parts.}
+    \label{fig:waterproof}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Introduction/SWAM_simulation.png}
+        \caption{Simulation of the joint kinematics}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.35\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Introduction/SWAM_simulation_with_force.png}
+        \caption{Fluid force vectors (in red)}
+    \end{subfigure}
+    \caption{Interface and renders of the \textit{SWUMSUIT} simulation software.}
+    \label{fig:swumsuit_sim}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Introduction/Swumanoid_test_salle_en_l_air.png}
+    \caption{Suspended test rig in the laboratory.}
+    \label{fig:air_test}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Introduction/atoms3r_main_board.jpg}
+    \caption{New main board for the SWUMANOID (housed in its head).}
+    \label{fig:new_main_board_in_head}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{Introduction/SWUMANOID_ready_to_swim_pool_room_experiment.png}
+    \caption{Free-swimming pool experiment with the SWUMANOID.}
+    \label{fig:pool_experiment}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{Introduction/Salle_experience_dispositif.png}
+    \caption{Layout of the experiment recording setup.}
+    \label{fig:dispositif_experiment}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{partie2/atoms3_picture.png}
+        \caption{M5Stack AtomS3}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{partie2/atoms3r_picture.png}
+        \caption{M5Stack AtomS3R}
+    \end{subfigure}
+    \caption{Visual and technical comparison of the two microcontrollers.}
+    \label{fig:m5stack_comparison}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{composants/atoms3r_pinout.png}
+        \caption{AtomS3R.}
+        \label{fig:comp_atoms3r}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{composants/MAX3485_avec_broche_EN.jpg}
+        \caption{RS-485 transceiver module.}
+        \label{fig:comp_rs485}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{composants/DCDC_converter.jpeg}
+        \caption{DC-DC converter (MP2307).}
+        \label{fig:comp_buck}
+    \end{subfigure}
+    \caption{Components of the new \textit{main board}.}
+    \label{fig:composants}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.34\textwidth}
+        \centering
+        \includegraphics[height=13cm]{schemas/swumanoid_motor_map.png}
+        \caption{Motor layout on the SWUMANOID.}
+        \label{fig:map_body}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.24\textwidth}
+        \centering
+        \includegraphics[height=5cm]{composants/XW_series_motors_dynamixel.png}
+        \caption{XW-series Dynamixel.}
+        \label{fig:motor_xw}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.24\textwidth}
+        \centering
+        \includegraphics[height=5cm]{composants/xm540-w150.jpg}
+        \caption{XM-series Dynamixel.}
+        \label{fig:motor_xm}
+    \end{subfigure}
+    \caption{SWUMANOID motor configuration.}
+    \label{fig:swumanoid_map}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.4\textwidth}
+        \centering
+        \includegraphics[height=4cm]{composants/DCDC_converter_MINMAX.jpg}
+        \caption{MINMAX M78AR05 step-down converter.}
+        \label{fig:comp_minmax}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.4\textwidth}
+        \centering
+        \includegraphics[height=4cm]{composants/PCB_Board.jpg}
+        \caption{Compact soldering PCB (ElectroCookie).}
+        \label{fig:comp_pcb}
+    \end{subfigure}
+    \caption{The two smaller parts chosen to shrink the board down to size.}
+    \label{fig:new_components}
+\end{figure}
+
+
+
+
+
+\newpage
 
 \subsection{Motion Kinematics and Interpolation}
 \label{subsec:method_interpolation}
