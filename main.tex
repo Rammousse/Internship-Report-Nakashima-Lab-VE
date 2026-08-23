@@ -353,7 +353,7 @@ Since the requirements stressed that the Wi-Fi is often unstable, that's why I s
 In practice, the firmware samples the RSSI at the same rate as the real-time telemetry stream ($\approx 20$~Hz) and exposes it to the client, which feeds a thirty-second sliding window. The resulting curve (Figure~\ref{fig:evolution_rssi}, right) gives us a measurable, usable quantity to map the link range around the pool.
 
 
-In the same spirit, I added a three-dimensional avatar of the robot to the interface, rendered in the browser with the Three.js library~\cite{threejs}. This mannequin reproduces, in real time, the spatial orientation measured by the inertial unit (IMU) housed in the AtomS3R's head. The operator gets an immediate read of the SWUMANOID's attitude (roll, pitch, yaw) without having to interpret raw numbers (Figure~\ref{fig:imu_avatar}). The full inertial signal processing chain and the orientation angle computation have their own section (see \ref{sec:calcul_angle}), but here I only want to underline the role of this visualization as a qualitative control instrument during an experiment.
+In the same spirit, I added a three-dimensional avatar of the robot to the interface, rendered in the browser with the Three.js library~\cite{threejs}. This mannequin reproduces, in real time, the spatial orientation measured by the inertial unit (IMU) housed in the AtomS3R's head. The operator gets an immediate read of the SWUMANOID's attitude (roll, pitch, yaw) without having to interpret raw numbers (Figure~\ref{fig:imu_avatar}). The full inertial signal processing chain and the orientation angle computation have their own section (see \ref{subsubsec:calcul_angle}), but here I only want to underline the role of this visualization as a qualitative control instrument during an experiment.
 
 \begin{figure}[H]
     \centering
@@ -370,7 +370,7 @@ tick = \frac{\theta_{deg}+180}{360} \times 4095
 \end{equation}
 The conversion includes an integer rounding and a clamp to $[0, 4095]$. It can also apply a per-servo calibration table (an offset and rotation direction specific to each joint), to compensate for the mechanical mounting differences between the model's theoretical axis and the actuator's real axis. 
 
-Also, as we will discuss in section \ref{sec:method_interpolation}, we decided to make the control frequency and the duration of a swimming cycle user-configurable to allow for flexible robot control. This capability entails calculating a new number of frames, $F$, using an interpolation method explained later and resulting in a frame count that differs from that of the motion file originally uploaded to the client.
+Also, as we will discuss in section \ref{subsec:method_interpolation}, we decided to make the control frequency and the duration of a swimming cycle user-configurable to allow for flexible robot control. This capability entails calculating a new number of frames, $F$, using an interpolation method explained later and resulting in a frame count that differs from that of the motion file originally uploaded to the client.
 
 Finally, the AtomS3R now acts as a simple executor, it indeed receives the trajectory as a single compact binary block, which makes it immune to Wi-Fi instability during playback. This binary format (little-endian) drastically minimizes the network transfer size, the structure of this packet is detailed in Table \ref{tab:binary_payload}.
 
@@ -1196,489 +1196,6 @@ This campaign on the real robot fully confirms the budget model and leads to a p
 This setting brings together the full telemetry of the 21 joints, a high and faithful control rate, and a real swimming cycle exactly matching the physical setpoint. It is the operating base on which the swimming-dynamics analyses that follow will rely.
 
 
-\section{Motion Kinematics and Interpolation}
-\label{sec:method_interpolation}
-
-\subsection{The Problem of Previous System}
-
-In the first system, we could'nt change the frequency of control and the number of frames of the motion file. So a linear interpolation was implemented but used to connect the motion frames guaranteed position continuity and not the continuity of its derivatives, so at each node, the commanded velocity changed discontinuously (theoretically infinite acceleration), which produced jerky motion. In particular, during the cyclic playback of a motion, the repetition of the same file, the last frame usually did not coincide with the first and the loop-back caused a jump in position and velocity, and therefore a mechanical jolt at every cycle start. 
-
-Before developping this section we can notice that, although the new hardware configuration (described in Section \ref{sec:motors_board_configuration}) allows control at 200 Hz, its development took significant time to design and deliver. During that wait, the pool tests had to run on the old configuration, capped at very low frequencies (between 36 Hz and 50 Hz) because of a low baud rate. But this temporary hardware constraint made us aware of some flaws in our algorithm. In fact at high frequency the density of command points hides the mathematical interpolation errors but at low frequency, though, the trajectory's continuity defects become large and physically destructive for the robot's swimming.
-
-Moreover, the move to the initial pose was also too abrupt, and a software bug froze the control frequency at 15~Hz regardless of the interface settings.
-
-To gain full flexibility over the timing, as explained in the previous section, the parameter management logic was inverted. From now on, the control frequency $f_{\mathrm{c}}$, the cycle duration $T_{\mathrm{cycle}}$ and the number of repetitions $N_{\mathrm{plays}}$ are the only variables set by the user. The number of frames per cycle $F$ is no longer a constraint imposed by the source file, but a variable computed dynamically:
-
-\begin{equation}
-    F = f_{\mathrm{c}} \times T_{\mathrm{cycle}}
-\end{equation}
-
-The time interval between two motor commands is thus fixed at $\Delta t = 1/f_{\mathrm{c}}$. Since $F$ generally differs from the number of points $N$ in the motion file, new joint positions must be recomputed to match this exact time grid and so that is the role of interpolation.
-
-\subsection{Choosing the Cubic Spline}
-
-We used first the piecewise-linear interpolation which is only class $\mathcal{C}^0$ so the velocity is piecewise constant and discontinuous at the nodes, which forces the motors into "staircase" command changes. To solve this issue, and as used by M. NAKASHIMA in the SWUM simulation \cite{nakashima2012optimizing}, we replaced it with a \textit{periodic cubic spline}, a piecewise polynomial function of degree~3, class $\mathcal{C}^2$ over the whole interval, it means the interpolated position, velocity \emph{and} acceleration are continuous at the nodes. The acceleration discontinuities are thus eliminated at the source, for a compute cost linear in $N$.
-
-The $N$ frames of the source file are indexed on a uniform grid $x_i = i$, $i = 0,\dots,N-1$ (step $h = x_{i+1} - x_i = 1$), and we write $y_i$ for the angular command of a joint at frame $i$. We can notice that each motor is handled independently by the same algorithm. On each interval $[x_i,\, x_{i+1}]$ of uniform step $h = x_{i+1} - x_i$, the trajectory is modeled by a cubic polynomial:
-\begin{equation}
-    S_i(x) = a_i + b_i\,(x - x_i) + c_i\,(x - x_i)^2 + d_i\,(x - x_i)^3
-    \qquad \text{with} \quad x \in [x_i,\, x_{i+1}]
-    \label{eq:spline-cubique}
-\end{equation}
-
-Because $S_i(x)$ is a polynomial of degree~3, its second derivative $S''_i(x)$ is strictly linear on the interval. We can therefore express it directly using linear interpolation between the second derivatives at the nodes, $y''_i = S''_i(x_i)$ and $y''_{i+1} = S''_i(x_{i+1})$. Introducing the barycentric coordinates  and  yields:
-\begin{equation}
-    S''_i(x) = A\,y''_i + B\,y''_{i+1} \quad \text{with} \quad A = \frac{x_{i+1} - x}{h} \quad \text{and} \quad B = 1 - A = \frac{x - x_i}{h}
-\end{equation}
-
-Integrating this expression twice introduces two integration constants, $C_1$ and $C_2$:
-\begin{equation}
-    S_i(x) = \frac{h^2}{6}\,A^3\,y''_i + \frac{h^2}{6}\,B^3\,y''_{i+1} + C_1\,A + C_2\,B
-\end{equation}
-
-Enforcing the $\mathcal{C}^0$ positional boundary conditions at the nodes ($S_i(x_i) = y_i$ at $A=1, B=0$, and $S_i(x_{i+1}) = y_{i+1}$ at $A=0, B=1$) determines these constants as $C_1 = y_i - \frac{h^2}{6}y''_i$ and $C_2 = y_{i+1} - \frac{h^2}{6}y''_{i+1}$. Substituting them back into the expression gives the barycentric formulation:
-\begin{equation}
-    S_i(x) = A\,y_i + B\,y_{i+1}
-    + \frac{h^2}{6}\left[(A^3 - A)\,y''_i + (B^3 - B)\,y''_{i+1}\right]
-    \label{eq:spline-nr}
-\end{equation}
-
-By construction, this formulation inherently satisfies nodal interpolation and $\mathcal{C}^2$ continuity. The coefficients of the canonical form~\eqref{eq:spline-cubique} are then determined by evaluating $S_i$ and its successive derivatives at the node $x = x_i$ ($A=1, B=0$):
-\begin{itemize}
-    \item \textbf{Position ($a_i$)}: $S_i(x_i) = a_i = y_i$
-    \item \textbf{Second derivative ($c_i$)}: $S''_i(x_i) = 2c_i = y''_i \implies c_i = \frac{y''_i}{2}$
-    \item \textbf{Third derivative ($d_i$)}: Differentiating $S''_i(x)$ yields $S'''_i(x_i) = 6d_i = \frac{y''_{i+1} - y''_i}{h} \implies d_i = \frac{y''_{i+1} - y''_i}{6h}$
-    \item \textbf{First derivative ($b_i$)}: Differentiating~\eqref{eq:spline-nr} with respect to $x$ (using $\frac{\mathrm{d}A}{\mathrm{d}x} = -\frac{1}{h}$ and $\frac{\mathrm{d}B}{\mathrm{d}x} = \frac{1}{h}$) and evaluating at $x_i$ gives $S'_i(x_i) = b_i = \frac{y_{i+1} - y_i}{h} - \frac{h}{6}(2y''_i + y''_{i+1})$.
-\end{itemize}
-
-This provides the exact coefficient set for the trajectory segment :
-\begin{equation}
-    a_i = y_i, \qquad
-    b_i = \frac{y_{i+1} - y_i}{h} - \frac{h}{6}\left(2y''_i + y''_{i+1}\right), \qquad
-    c_i = \frac{y''_i}{2}, \qquad
-    d_i = \frac{y''_{i+1} - y''_i}{6h}
-    \label{eq:spline-coeffs}
-\end{equation}
-
-But before solving the problem, we need to understand the limits of a classic interpolation, where the second derivative is forced to zero at the ends. The SWUMANOID's original motion files are designed for a 2-second cycle at 72~Hz, so 144 frames. To assess this method, let us first look at its behavior at a high control frequency (90~Hz).
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{graphiques/202607141616_ID_4_Spline_Cubic_Pure_90Hz.png}
-    \caption{Natural interpolation at 90 Hz.}
-    \label{fig:spline_nat_90}
-\end{figure}
-
-At that frequency, the number of recomputed points is large, as the figure~\ref{fig:spline_nat_90} shows, the blue command curve follows the trajectory faithfully. The mathematical defect at the ends exists, but the very high density of points almost entirely masks it at the loop-back around 2 seconds. But the fragility of this approach shows up as soon as we move away from the design frequency by subsampling.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{graphiques/202607141612_ID_4_Spline_Cubic_Pure_50Hz.png}
-    \caption{Natural interpolation at 50 Hz.}
-    \label{fig:spline_nat_50}
-\end{figure}
-
-At 50~Hz, the natural spline starts to reveal its weaknesses, indeed, the plot in the figure~\ref{fig:spline_nat_50} highlights a clearly visible offset at the end of the cycle, the last interpolated frame no longer joins the first frame of the next cycle cleanly, creating a command jump.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{graphiques/202607141611_ID_4_Spline_Cubic_Pure_36Hz.png}
-    \caption{Natural interpolation at 36 Hz.}
-    \label{fig:spline_nat_36}
-\end{figure}
-
-The problem gets drastically worse at very low frequencies. At 36~Hz, half the nominal frequency, the natural boundary conditions completely distort the motion dynamics at the ends. As Figure~\ref{fig:spline_nat_36} shows, there is an drop in the command at the end of the cycle (at 2.05 s). On the physical robot, this offset translated into a particularly violent mechanical jolt, threatening the integrity of the swim.
-
-To kill this command jump and guarantee a smooth loop, the unknowns $y''_i$ at the nodes must be computed differently. Since the trajectory is meant to be repeated, it is modeled as a \emph{periodic} function of period $N$ : node $x_N$ is identified with node $x_0$ ($y_N \equiv y_0$), and the interpolant $S$ is subjected to the periodic boundary conditions
-\begin{equation}
-    S(x_0) = S(x_N), \qquad S'(x_0) = S'(x_N), \qquad S''(x_0) = S''(x_N)
-    \label{eq:periodiques}
-\end{equation}
-While positional and acceleration continuities are inherently satisfied by the barycentric form, velocity continuity must be explicitly enforced. Equating the first derivatives of adjacent segments at each node, $S'_{i-1}(x_i) = S'_i(x_i)$, and assuming a uniform step $h=1$ yields the well-known system of N equations :
-\begin{equation}
-    y''_{i-1} + 4\,y''_i + y''_{i+1} = 6\left(y_{i+1} - 2y_i + y_{i-1}\right)
-    \qquad i = 0,\dots,N-1
-    \label{eq:systeme-cyclique}
-\end{equation}
-where all indices are taken modulo $N$. In matrix form, the periodicity introduces two coupling terms at the corners of the matrix, which becomes \emph{cyclic tridiagonal}:
-\begin{equation}
-    \begin{pmatrix}
-        4 & 1 &        &        & 1 \\
-        1 & 4 & 1      &        &   \\
-          & \ddots & \ddots & \ddots &   \\
-          &        & 1      & 4      & 1 \\
-        1 &        &        & 1      & 4
-    \end{pmatrix}
-    \begin{pmatrix} y''_0 \\ y''_1 \\ \vdots \\ y''_{N-2} \\ y''_{N-1} \end{pmatrix}
-    =
-    6\begin{pmatrix}
-        y_1 - 2y_0 + y_{N-1} \\
-        y_2 - 2y_1 + y_0 \\
-        \vdots \\
-        y_{N-1} - 2y_{N-2} + y_{N-3} \\
-        y_0 - 2y_{N-1} + y_{N-2}
-    \end{pmatrix}
-    \label{eq:matrice-cyclique}
-\end{equation}
-
-\subsection{Solving the Cyclic System}
-
-%\paragraph{Sherman--Morrison decomposition and the Thomas algorithm:} 
-
-The system~\eqref{eq:matrice-cyclique} is not tridiagonal, but it still solves in $\mathcal{O}(N)$ thanks to the \textsc{Sherman--Morrison} formula~\cite{numerical_recipes}. Let $A$ be the cyclic matrix on the left side of system~\eqref{eq:matrice-cyclique}, this matrix $A$ is, indeed, not strictly tridiagonal because of its two corner coefficients $A_{0,N-1} = A_{N-1,0} = 1$. To avoid a costly full matrix inversion, we write $A$ as a rank-1 perturbation of an ordinary, strictly tridiagonal matrix $T$ according to~\cite{numerical_recipes}:
-\begin{equation}
-    A = T + u\,v^{\mathsf{T}} \qquad
-    u = \begin{pmatrix} \gamma \\ 0 \\ \vdots \\ 0 \\ 1 \end{pmatrix} \qquad
-    v = \begin{pmatrix} 1 \\ 0 \\ \vdots \\ 0 \\ 1/\gamma \end{pmatrix}
-    \qquad \gamma = -4
-    \label{eq:sherman-morrison-setup}
-\end{equation}
-where $\gamma$ is a free parameter chosen so that $T$ stays well conditioned, here $\gamma = -4$, the opposite of the running diagonal term. The product $u\,v^{\mathsf{T}}$ modifies only the four corners of the matrix:
-\begin{equation}
-    (u\,v^{\mathsf{T}})_{0,0} = \gamma, \quad
-    (u\,v^{\mathsf{T}})_{0,N-1} = \gamma/\gamma = 1, \quad
-    (u\,v^{\mathsf{T}})_{N-1,0} = 1, \quad
-    (u\,v^{\mathsf{T}})_{N-1,N-1} = 1/\gamma
-\end{equation}
-so that $T = A - u\,v^{\mathsf{T}}$ is \emph{exactly} tridiagonal, with diagonal
-\begin{equation}
-    T_{i,i} =
-    \begin{cases}
-        4 - \gamma = 8 & \text{if } i = 0, \\[2pt]
-        4 - \dfrac{1}{\gamma} = 4.25 & \text{if } i = N-1, \\[6pt]
-        4 & \text{otherwise,}
-    \end{cases}
-    \qquad T_{i,i-1} = T_{i,i+1} = 1
-    \label{eq:T-diag}
-\end{equation}
-and sub/super-diagonals all equal to~1 (interior indices). To solve the original system $A\,y'' = d$ without explicitly computing a costly matrix inversion, we apply the \textsc{Sherman--Morrison} formula. This theorem provides the analytical inverse of a matrix that has been modified by a rank-1 update~\cite{numerical_recipes} :
-\begin{equation}
-    A^{-1} = (T + u\,v^{\mathsf{T}})^{-1} = T^{-1} - \frac{T^{-1} u\,v^{\mathsf{T}} T^{-1}}{1 + v^{\mathsf{T}} T^{-1} u}
-\end{equation}
-
-Multiplying both sides by the right-hand vector $d$ yields the solution for $y''$ :
-\begin{equation}
-    y'' = A^{-1} d = T^{-1} d - \frac{T^{-1} u \left(v^{\mathsf{T}} T^{-1} d\right)}{1 + v^{\mathsf{T}} T^{-1} u}
-\end{equation}
-
-To completely avoid the $\mathcal{O}(N^3)$ operation of calculating $T^{-1}$, we define two intermediate vectors $z$ and $w$ such that $z = T^{-1} d$ and $w = T^{-1} u$. Finding these vectors is computationally equivalent to solving two \emph{ordinary}, strictly tridiagonal systems:
-\begin{equation}
-    T z = d \qquad \text{and} \qquad T w = u
-\end{equation}
-
-Substituting $z$ and $w$ back into the analytical solution dramatically simplifies the final equation:
-\begin{equation}
-    y'' = z - \frac{v^{\mathsf{T}} z}{1 + v^{\mathsf{T}} w}\; w
-    \label{eq:sherman-morrison-solution}
-\end{equation}
-
-Furthermore, given the sparse form of $v$, the dot product reduces to a simple scalar evaluation $v^{\mathsf{T}} z = z_0 + z_{N-1}/\gamma$ and likewise for $v^{\mathsf{T}} w$. So only the head and tail components of the vectors matter, and no full matrix is ever formed explicitly.
-
-Finally, each of the two tridiagonal systems $T z = d$ and $T w = u$ is solved by the Thomas algorithm (Tridiagonal Matrix Algorithm, TDMA)~\cite{burden_faires}, an optimized variant of Gaussian elimination specialized for tridiagonal matrices, which operates in $\mathcal{O}(N)$ complexity instead of the $\mathcal{O}(N^3)$ required for a general inversion.
-
-Consider a generic system $T x = r$, where $r$ is the right-hand side vector, representing either $d$ or $u$. Since the sub-diagonals and super-diagonals are all equal to~1, the algorithm runs in two passes:
-
-\begin{enumerate}
-    \item \textbf{Forward sweep (elimination):} We eliminate the sub-diagonal terms row by row. For the very first row ($i=0$), the equation is simply $T_{0,0}\, x_0 + x_1 = r_0$. Dividing by the pivot $T_{0,0}$ isolates $x_0$ and defines our initial modified coefficients:
-    \begin{equation}
-        c'_0 = \frac{1}{T_{0,0}}, \qquad x_0 = \frac{r_0}{T_{0,0}}
-    \end{equation}
-    Then, for $i = 1, \dots, N-1$, we substitute the previous row into the current one. Noting that the effective pivot of row $i$ after eliminating column $i-1$ becomes $m_i = T_{i,i} - c'_{i-1}$, we update the coefficients :
-    \begin{equation}
-        m_i = T_{i,i} - c'_{i-1}, \qquad
-        c'_i = \frac{1}{m_i}, \qquad
-        x_i = \frac{r_i - x_{i-1}}{m_i}
-        \label{eq:thomas-forward}
-    \end{equation}
-    At the end of this pass, the system has been reduced to an equivalent \emph{upper bidiagonal} form.
-    
-    \item \textbf{Back substitution:} We walk the indices in reverse to propagate the corrections left pending by the super-diagonal terms ($c'_i$) during the forward sweep:
-    \begin{equation}
-        x_i \leftarrow x_i - c'_i\, x_{i+1}, \qquad i = N-2,\, N-3,\, \dots,\, 0
-        \label{eq:thomas-backward}
-    \end{equation}
-\end{enumerate}
-
-Each of the two passes costs only $\mathcal{O}(N)$ arithmetic operations, and the matrix $T$ is factorized only once. So the total compute cost therefore stays linear in $N$, which allows the instant recomputation of the high-frequency trajectory for all 21 joints whenever a parameter is adjusted on the interface.
-
-Once the vector $y''$ is known, the closed curve is evaluated at $F$ points evenly spread over one period, \emph{excluding} the joining point which belongs to the next cycle :
-\begin{equation}
-    x_k = k\,\frac{N}{F}, \qquad k = 0,\, 1,\, \dots,\, F-1
-\end{equation}
-so that the number of frames produced respects exactly $F = f_{\mathrm{Hz}} \times T_{\mathrm{cycle}}$ and the next frame ($k = F$, first frame of the next cycle) falls precisely on $S(x_N) = y_0$.
-
-This new formulation solves the discontinuity problem at the source. Taking again the critical case of subsampling at 36~Hz, as we can observe from Figure~\ref{fig:spline_per_36} demonstrates the method's success perfectly :
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{graphiques/202607141717_ID_4_Spline_Cubique_Periodique_36Hz.png}
-    \caption{Periodic interpolation at 36 Hz.}
-    \label{fig:spline_per_36}
-\end{figure}
-
-In the graph we see the command curve, in blue, which anticipates the end of the cycle and joins the start of the next one perfectly smoothly. The transition, after 2 seconds, happens with no break in slope, definitively eliminating the mechanical jolts.
-
-This structural continuity holds naturally at intermediate frequencies. The figure~\ref{fig:spline_per_50} shows that at 50~Hz, where the natural spline had a visible drop, the periodic spline gives a flawless closed loop. The signal chains together seamlessly over infinite cycles.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{graphiques/202607141720_ID_4_Spline_Cubique_50Hz.png}
-    \caption{Periodic interpolation at 50 Hz.}
-    \label{fig:spline_per_50}
-\end{figure}
-
-Finally, at high frequency (90~Hz), the method keeps the very high fidelity of the motion while guaranteeing a perfect join at the ends, as the figure~\ref{fig:spline_per_90} shows below. So the periodic spline is therefore the best choice for the SWUMANOID's motion interpolation, as it guarantees a smooth trajectory at any control frequency.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{graphiques/202607141725_ID_4_Spline_Cubique_Periodique_90Hz.png}
-    \caption{Periodic interpolation at 90 Hz.}
-    \label{fig:spline_per_90}
-\end{figure}
-
-By construction of the periodic interpolant~\eqref{eq:periodiques}, position, velocity and acceleration are continuous at the loop-back so the join between two consecutive cycles is class $\mathcal{C}^2$, just like any interior point of the trajectory. The momentum of the swimming stroke is thus fully preserved from one cycle to the next, and the motor jolts at loop-back are eliminated not approximately but exactly. In practice, the residual velocity discontinuity measured at the join is smaller than the maximum velocity variation observed inside the cycle. Moreover if the source file ends explicitly with a copy of its first frame, this duplicate is removed before fitting so as not to introduce a double node in the period.
-
-
-\subsection{Minimum-Jerk Ramp}
-
-For the move to the initial pose, the C++ firmware now generates a degree-5 polynomial approach trajectory (\textit{minimum-jerk}). The normalized time equation is:
-\begin{equation}
-s(t) = 6t^5 - 15t^4 + 10t^3, \quad t \in [0,1]
-\end{equation}
-The joint command at instant $k$ is then computed smoothly by:
-\begin{equation}
-q_k = q_{start} + s\left(\frac{k}{g_{rampSteps}}\right) \cdot (q_{goal} - q_{start})
-\end{equation}
-This software safeguard is paired with a temporary hardware speed limit via the Dynamixel registers, as shown in Table \ref{tab:hardware_profile}.
-
-\begin{table}[h]
-\centering
-\begin{tabular}{|l|c|l|}
-\hline
-\textbf{Register} & \textbf{Address} & \textbf{Value at initialization} \\ \hline
-\texttt{Profile Acceleration} & 108 & \texttt{10} (very gentle acceleration) \\ \hline
-\texttt{Profile Velocity} & 112 & \texttt{40} ($\approx 9$ rpm) \\ \hline
-\end{tabular}
-\caption{Hardware speed limiting of the actuators.}
-\label{tab:hardware_profile}
-\end{table}
-
-To \textbf{fix the CPU loop}, the 15 Hz limitation was resolved by drastically separating the blocking UART calls from the network handling (SSE), and by forcing a reset of the ESP32's hardware timers when the motion starts.
-
-% \section{Implementing a PID controller}
-
-
-
-\section{Angular Configuration of the SWUMANOID via the IMU}
-\label{sec:calcul_angle}
-
-This section formalizes, in full, the kinematic processing chain chosen to estimate the \emph{roll} ($\phi$, around the longitudinal axis $X$) and \emph{yaw} ($\psi$, around the vertical $Z$) angles of the SWUMANOID robot from the inertial unit (IMU) housed in the AtomS3R. The unit provides only a three-axis accelerometer $\mathbf{a}=(A_x,A_y,A_z)^{\mathsf T}$ and a three-axis gyroscope $\boldsymbol{\omega}=(G_x,G_y,G_z)^{\mathsf T}$, expressed in the AtomS3R's \emph{board} frame $\mathcal{B}$ neither an attitude quaternion nor a magnetometer is transmitted.
-
-The attitude is therefore reconstructed entirely on the client, transformed into the robot frame $\mathcal{R}$, referenced by a tare operation, then smoothed. The adopted convention is \emph{Z-Up} (the robot's vertical axis pointing up), in line with robotics standards.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.25\linewidth]{schemas/IMU-AtomS3R_Defaut_Axes.png}
-    \caption{Axis orientation of the AtomS3R base.}
-    \label{fig:imu_axes}
-\end{figure}
-
-We write unit quaternions as $q=(q_w,q_x,q_y,q_z)$ (scalar part first), $\otimes$ for the Hamilton product, $q^{*}$ for the conjugate and, for a unit quaternion, $q^{-1}=q^{*}$. The world frame $\mathcal{W}$ is aligned with gravity, $\mathbf{z}_{\mathcal{W}}=(0,0,1)^{\mathsf T}$ pointing up. The AtomS3R's default axes and the SWUMANOID's target frame are shown respectively in the figure~\ref{fig:imu_axes} and~\ref{fig:swumanoid_frame}.
-
-
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{\textwidth}
-        \centering
-        \includegraphics[width=0.8\linewidth]{schemas/AtomS3R_SWUMANOID_orientation_side_view.png}
-        \caption{Side view of the SWUMANOID.}
-    \end{subfigure}
-
-    \vspace{0.4cm}
-
-    \begin{subfigure}[b]{\textwidth}
-        \centering
-        \includegraphics[width=0.8\linewidth]{schemas/AtomS3R_SWUMANOID_orientation_Back_View.png}
-        \caption{Back view of the SWUMANOID.}
-    \end{subfigure}
-    \caption{Global view of the AtomS3R frame axes relative to the robot's target frame.}
-    \label{fig:swumanoid_frame}
-\end{figure}
-
-\subsection{Acquisition and Fusion of the Raw Data}
-\label{subsec:acquisition}
-
-The firmware transmits acceleration in milli-$g$ and angular velocity in deci-degrees per second so the physical quantities are recovered by
-\begin{equation}
-\mathbf{a}=\frac{1}{1000}\,\mathbf{a}_{\text{raw}}\ [\,g\,],
-\qquad
-\boldsymbol{\omega}=\frac{1}{10}\,\boldsymbol{\omega}_{\text{raw}}\ [\,^\circ\!/\mathrm{s}\,]
-\end{equation}
-A dead zone is then applied component by component to the gyroscope, to neutralize the rest noise responsible for the slow yaw drift:
-\begin{equation}
-\tilde{\omega}_i=
-\begin{cases}
-0 & \text{if } |\omega_i|<\omega_{\mathrm{db}},\\
-\omega_i & \text{otherwise,}
-\end{cases}
-\qquad i\in\{x,y,z\},\quad \omega_{\mathrm{db}}=1{.}2~^\circ\!/\mathrm{s}
-\end{equation}
-
-At rest, the accelerometer measures the reaction to gravity, a vector of unit norm (in $g$) collinear with the local vertical, its projection on the frame axes gives a \emph{drift-free} estimate of the tilt. Assuming a quasi-static sensor, the measured gravity is written in $\mathcal B$ as
-\begin{equation}
-\mathbf{a}=\mathbf{R}(\phi,\theta)^{\mathsf T}
-\begin{pmatrix}0\\0\\1\end{pmatrix}
-\end{equation}
-which, expanding the rotation matrix for a roll $\phi$ (around $X$) and a pitch $\theta$ (around $Y$), leads to the components
-\begin{equation}
-A_x=-\sin\theta,\qquad
-A_y=\cos\theta\,\sin\phi,\qquad
-A_z=\cos\theta\,\cos\phi
-\end{equation}
-From this, by elimination and using the $\operatorname{arctan2}$ function, which resolves the quadrant ambiguity over $[-\pi,\pi]$, we get the \emph{instantaneous} tilt angles:
-\begin{empheq}[box=\fbox]{align}
-\phi_{\text{acc}} &= \operatorname{arctan2}\!\big(A_y,\;A_z\big) \label{eq:roll_acc}\\
-\theta_{\text{acc}} &= \operatorname{arctan2}\!\Big(-A_x,\;\sqrt{A_y^{2}+A_z^{2}}\Big) \label{eq:pitch_acc}
-\end{empheq}
-Equation~\eqref{eq:roll_acc} is the physical basis of the roll estimate but the accelerometer has limits. Indeed, it is \emph{blind to yaw}, the gravity is invariant under rotation about the vertical, so $\psi$ appears in none of the equations above, and it is heavily noisy as soon as the sensor undergoes its own acceleration (vibrations from the 21 Dynamixel motors, shocks), the measured vector then no longer being purely gravitational.
-
-The gyroscope provides the instantaneous angular velocity and allows, through integration, a fine and low-latency tracking of orientation, it suffers, on the other hand, from a cumulative drift, an integrated bias. The fusion approach therefore combines the long-term stability of the accelerometer~\eqref{eq:roll_acc}--\eqref{eq:pitch_acc} with the short-term reactivity of the gyroscope. Rather than manipulate Euler angles (prone to gimbal lock), the orientation is carried by an attitude quaternion $q_{\text{raw}}$ ($\mathcal B\rightarrow\mathcal W$) whose kinematics obey this equation :
-\begin{equation}
-\dot{q}=\tfrac{1}{2}\,q\otimes
-\begin{pmatrix}0\\ \boldsymbol{\omega}\end{pmatrix}
-\label{eq:kinematics}
-\end{equation}
-with $\boldsymbol{\omega}$ expressed in the body frame. The implementation integrates~\eqref{eq:kinematics} with the exact exponential map on each interval $\Delta t$ measured locally, it means setting $\boldsymbol{\omega}$ in $\mathrm{rad/s}$, $\Omega=\lVert\boldsymbol{\omega}\rVert$ and $\mathbf{n}=\boldsymbol{\omega}/\Omega$,
-\begin{equation}
-\delta q=\Big(\cos\tfrac{\Omega\,\Delta t}{2},\;\mathbf{n}\,\sin\tfrac{\Omega\,\Delta t}{2}\Big),
-\qquad
-q_{\text{raw}}\leftarrow q_{\text{raw}}\otimes\delta q
-\label{eq:gyro_step}
-\end{equation}
-The post-multiplication on the right, reflects the \emph{local} nature of the rotation measured by the gyroscope.
-
-Let $\hat{\mathbf{u}}=\mathbf{a}/\lVert\mathbf{a}\rVert$ be the direction of gravity measured in $\mathcal B$. The initial quaternion is the shortest arc bringing $\hat{\mathbf{u}}$ onto $\mathbf{z}_{\mathcal W}$:
-\begin{equation}
-q_{\text{raw}}^{(0)}=\frac{\big(1+\hat{\mathbf{u}}\cdot\mathbf{z}_{\mathcal W},\;\hat{\mathbf{u}}\times\mathbf{z}_{\mathcal W}\big)}{\big\lVert\big(1+\hat{\mathbf{u}}\cdot\mathbf{z}_{\mathcal W},\;\hat{\mathbf{u}}\times\mathbf{z}_{\mathcal W}\big)\big\rVert}
-\label{eq:seed}
-\end{equation}
-so that the estimate starts flat, with the yaw arbitrarily fixed to zero, a purely relative heading.
-
-At each sample, the gyroscope prediction~\eqref{eq:gyro_step} is realigned on gravity \emph{only when} the measurement is judged quasi-static, that is $\big|\,\lVert\mathbf{a}\rVert-1\,\big|\le\tau$ with $\tau=0{.}25\,g$, this test discards the self-acceleration phases, where gravity is masked. The predicted vertical in the body frame is
-\begin{equation}
-\hat{\mathbf{g}}_{\text{pred}}=q_{\text{raw}}^{-1}\otimes\mathbf{z}_{\mathcal W}\otimes q_{\text{raw}}
-\end{equation}
-and we build the correction quaternion $\delta q_c$ realizing the shortest arc from the \emph{measured} vertical $\hat{\mathbf{u}}$ to the \emph{predicted} vertical $\hat{\mathbf{g}}_{\text{pred}}$, same form as in~\eqref{eq:seed}. This correction is applied only \emph{partially}, by spherical interpolation from the identity with a gain $\mu$, then composed on the right and renormalized :
-\begin{equation}
-q_{\text{raw}}\leftarrow\frac{q_{\text{raw}}\otimes\operatorname{Slerp}\!\big(\mathbf{1},\,\delta q_c,\,\mu\big)}{\big\lVert\,q_{\text{raw}}\otimes\operatorname{Slerp}\!\big(\mathbf{1},\,\delta q_c,\,\mu\big)\,\big\rVert},
-\qquad \mu=0{.}02
-\label{eq:complementary}
-\end{equation}
-The operator $\operatorname{Slerp}\!\big(\mathbf{1},\,\delta q_c,\,\mu\big)$ performs a Spherical Linear Interpolation by applying a small gain ($\mu = 0.02$), it computes a fractional rotation representing only a $2\%$ step toward the accelerometer's estimated correction~\cite{madgwick2010}.
-
-The pair of equations \eqref{eq:gyro_step} and \eqref{eq:complementary} thus realizes an explicit \emph{complementary filter} on the quaternion space~\cite{mahony2008}. The gyroscope handles the high-frequency dynamics, which areresponsive but prone to integration drift, while the accelerometer corrects the low-frequency drift of the roll and pitch angles by anchoring them to the true gravity vector. This geometric structure provides an explicit alternative to popular gradient-descent-based methods, such as the Madgwick filter~\cite{madgwick2010}.
-
-Furthermore, because the gravity vector is invariant to rotations around the vertical axis, the accelerometer provides no observable information about the yaw. Consequently, the yaw estimate is never corrected and relies entirely on the gyroscope integration~\eqref{eq:gyro_step}. Without an absolute magnetic reference, this relative heading remains \emph{reversible}, so a physical return to the initial orientation brings the numerical yaw exactly back to its starting state, free from arbitrary correction twisting. The resulting quaternion $q_{\text{raw}}$ represents the board's absolute attitude, $\mathcal B\rightarrow\mathcal W$.
-
-\subsection{Frame Change and Calibration}
-\label{subsec:calib}
-\label{subsec:tare}
-
-The AtomS3R is not mounted along the SWUMANOID's anatomical axes, indeed, it sits in the head with a mechanical tilt of $37{.}2^\circ$ as we can see in the figure~\ref{fig:robot_tilt}.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.6\linewidth]{schemas/AtomS3R_SWUMANOID_orientation_side_view_zoomed.png}
-    \caption{Detailed view of the AtomS3R's mechanical tilt in the robot's head.}
-    \label{fig:robot_tilt}
-\end{figure}
-
-To express the attitude in the robot's Z-Up frame $\mathcal R$, we apply a constant rigid transformation $q_{\text{calib}}$ corresponding to the following sequence of \emph{intrinsic} rotations, about the successive local axes, it demonstrated in the figure~\ref{fig:rotation_repere_schema} :
-\begin{enumerate}
-  \item $R_1$: a $+37{.}2^\circ$ rotation about the board's \emph{initial} $X$ axis, which compensates the mechanical tilt and straightens the vertical axis \emph{upward}.
-  \item $R_2$: a $-90^\circ$ rotation about the \emph{new} $Z'$ axis, which aligns the board axes with the robot's front.
-\end{enumerate}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.9\linewidth]{schemas/AtomS3r_Changement_Repere_Transformation.png}
-    \caption{Diagram of the successive rotations applied to the board frame.}
-    \label{fig:rotation_repere_schema}
-\end{figure}
-
-With the elementary rotation matrices :
-\begin{equation}
-R_x(\alpha)=\begin{pmatrix}1&0&0\\0&\cos\alpha&-\sin\alpha\\0&\sin\alpha&\cos\alpha\end{pmatrix},
-\qquad
-R_z(\beta)=\begin{pmatrix}\cos\beta&-\sin\beta&0\\\sin\beta&\cos\beta&0\\0&0&1\end{pmatrix}
-\end{equation}
-the \emph{intrinsic} composition $R_1$ then $R_2$ about the already-turned axis is obtained by post-multiplication:
-\begin{equation}
-\mathbf{R}_{\text{calib}}=R_x(37{.}2^\circ)\,R_z(-90^\circ),
-\qquad
-R_z(-90^\circ)=\begin{pmatrix}0&1&0\\-1&0&0\\0&0&1\end{pmatrix}
-\label{eq:Rcalib}
-\end{equation}
-
-But the code does not use $\mathbf{R}_{\text{calib}}$ but its equivalent quaternion, to eliminate any singularity. With the axis angle parametrization $q_{\mathbf{n}}(\gamma)=\big(\cos\tfrac{\gamma}{2},\,\mathbf{n}\sin\tfrac{\gamma}{2}\big)$,
-\begin{equation}
-q_x=q_{\mathbf{e}_x}(37{.}2^\circ)=\big(\cos 18{.}6^\circ,\,\sin 18{.}6^\circ,\,0,\,0\big),
-\qquad
-q_z=q_{\mathbf{e}_z}(-90^\circ)=\Big(\tfrac{\sqrt{2}}{2},\,0,\,0,\,-\tfrac{\sqrt{2}}{2}\Big)
-\end{equation}
-\begin{equation}
-\boxed{\,q_{\text{calib}}=q_x\otimes q_z\,}
-\label{eq:qcalib}
-\end{equation}
-The robot's absolute attitude, the mount being fixed to the body, results from the post-multiplication
-\begin{equation}
-\boxed{\,q_{\text{robot}}=q_{\text{raw}}\otimes q_{\text{calib}}\,}
-\label{eq:qrobot}
-\end{equation}
-
-In goal to let the user sets the current pose as the origin $(0,0,0)$, we store the inverse (conjugate) of the transformed attitude at the trigger instant, $q_{\text{robot}}^{(0)}$:
-\begin{equation}
-q_{\text{tare}}=\big(q_{\text{robot}}^{(0)}\big)^{-1}=\big(q_{\text{robot}}^{(0)}\big)^{*}
-\label{eq:qtare}
-\end{equation}
-then the displayed attitude is referenced at each sample by
-\begin{equation}
-\boxed{\,q_{\text{display}}=q_{\text{tare}}\otimes q_{\text{robot}}\,}
-\label{eq:qdisplay}
-\end{equation}
-By construction, $q_{\text{display}}=\mathbf{1}$ (identity, i.e. $0^\circ$) when $q_{\text{robot}}=q_{\text{robot}}^{(0)}$, since $q_{\text{tare}}\otimes q_{\text{robot}}^{(0)}=\big(q_{\text{robot}}^{(0)}\big)^{-1}\otimes q_{\text{robot}}^{(0)}=\mathbf{1}$, any return to the reference pose brings the display rigorously back to zero. This mechanism is also initialized automatically at the first valid sample, which guarantees a zero display at startup, regardless of the board's hardware orientation.
-
-\subsection{Euler Angle Extraction and Low-Pass Filtering}
-\label{subsec:extract_filter}
-
-The final angles are extracted from $q_{\text{display}}$ by conversion to Tait--Bryan angles in the order $Z\!-\!Y\!-\!X$. This choice is justified by the structure of the problem, in fact, in a three-axis decomposition, only the \emph{intermediate} axis carries the singularity at $\pm90^\circ$. By placing the \emph{pitch} ($Y$) in the intermediate position, we guarantee that the \emph{roll} ($X$) and the \emph{yaw} ($Z$), the outer axes, stay readable without degeneracy as long as the pitch remains far from $\pm90^\circ$, which is the case for a robot swimming flat. Writing $q_{\text{display}}=(q_w,q_x,q_y,q_z)$, the elements of the associated rotation matrix give :
-\begin{empheq}[box=\fbox]{align}
-\phi\ (\text{roll}) &= \operatorname{arctan2}\!\big(2(q_yq_z+q_wq_x),\;1-2(q_x^{2}+q_y^{2})\big) \label{eq:roll}\\
-\theta\ (\text{pitch}) &= \arcsin\!\big(2(q_wq_y-q_xq_z)\big) \label{eq:pitch}\\
-\psi\ (\text{yaw}) &= \operatorname{arctan2}\!\big(2(q_xq_y+q_wq_z),\;1-2(q_y^{2}+q_z^{2})\big) \label{eq:yaw}
-\end{empheq}
-Only roll~\eqref{eq:roll} and yaw~\eqref{eq:yaw} are kept for display, the yaw follows the right-hand rule about the upward vertical, it means that a positive physical heading produces a positive $\psi$, in agreement with the 3D avatar which is driven directly by $q_{\text{display}}$. The displayed values are $\phi^{\circ}=\tfrac{180}{\pi}\phi$ and $\psi^{\circ}=\tfrac{180}{\pi}\psi$.
-
-\paragraph{Low-pass filter :} Despite the fusion, the angles $\phi^{\circ}$ and $\psi^{\circ}$ keep a residual noise, the IMU measurement noise, motor-induced vibrations, and micro-oscillations at rest. A first-order low-pass filter with exponential moving average is applied \emph{only} to these two final angles. In the continuous regime, away from an angular discontinuity, the discrete recurrence is
-\begin{equation}
-\boxed{\,y[n]=\alpha\,x[n]+(1-\alpha)\,y[n-1]\,},\qquad \alpha=0{.}2
-\label{eq:ema}
-\end{equation}
-where $x[n]$ is the raw extracted angle~\eqref{eq:roll} or~\eqref{eq:yaw} and $y[n]$ the smoothed displayed value. To avoid any artifact when crossing the $\pm180^\circ$ discontinuity, the implementation works on the \emph{shortest arc} and the difference $x[n]-y[n-1]$ is brought back into $(-180^\circ,180^\circ]$ before weighting :
-\begin{equation}
-\Delta[n]=\big((x[n]-y[n-1]+180^\circ)\bmod 360^\circ\big)-180^\circ,
-\qquad
-y[n]=y[n-1]+\alpha\,\Delta[n]
-\label{eq:ema_wrap}
-\end{equation}
-the output itself being folded back into $(-180^\circ,180^\circ]$, away from the discontinuity, \eqref{eq:ema_wrap} is strictly equivalent to~\eqref{eq:ema}. The associated cutoff frequency ($-3$~dB) depends on the sampling period $T_s$, the stream is sent at a variable rate and satisfies exactly :
-\begin{equation}
-\cos\!\big(2\pi f_c T_s\big)=1-\frac{\alpha^{2}}{2(1-\alpha)},
-\qquad\text{so, for }\alpha\ll1,\quad
-f_c\approx\frac{\alpha}{2\pi\sqrt{1-\alpha}\;T_s}\approx\frac{0{.}0356}{T_s}
-\end{equation}
-For a typical rate $f_s=1/T_s\approx50~\mathrm{Hz}$, we get $f_c\approx1{.}8~\mathrm{Hz}$, which effectively attenuates the mechanical vibrations while preserving the dynamics of the swimming stroke. Finally, the 3D avatar model is driven directly by the quaternion $q_{\text{display}}$ demonstrated in the equation \eqref{eq:qdisplay}, unfiltered and free of gimbal lock, while only the numerical display, HUD, receives the smoothed and rounded values $\operatorname{round}(y[n])$.
-% \section{Adapting a marine simulation}
 
 \section{Conclusion}
 End of the internship!
@@ -1775,5 +1292,493 @@ End of the internship!
 %\addcontentsline{toc}{section}{References}
 %\bibliographystyle{unsrt} % Display style (unsrt sorts by order of appearance in the text)
 % \bibliography{biblio}     % Call the biblio.bib file
+
+\newpage
+
+\section{Annexes}
+
+
+\subsection{Motion Kinematics and Interpolation}
+\label{subsec:method_interpolation}
+
+\subsubsection{The Problem of Previous System}
+
+In the first system, we could'nt change the frequency of control and the number of frames of the motion file. So a linear interpolation was implemented but used to connect the motion frames guaranteed position continuity and not the continuity of its derivatives, so at each node, the commanded velocity changed discontinuously (theoretically infinite acceleration), which produced jerky motion. In particular, during the cyclic playback of a motion, the repetition of the same file, the last frame usually did not coincide with the first and the loop-back caused a jump in position and velocity, and therefore a mechanical jolt at every cycle start. 
+
+Before developping this section we can notice that, although the new hardware configuration (described in Section \ref{sec:motors_board_configuration}) allows control at 200 Hz, its development took significant time to design and deliver. During that wait, the pool tests had to run on the old configuration, capped at very low frequencies (between 36 Hz and 50 Hz) because of a low baud rate. But this temporary hardware constraint made us aware of some flaws in our algorithm. In fact at high frequency the density of command points hides the mathematical interpolation errors but at low frequency, though, the trajectory's continuity defects become large and physically destructive for the robot's swimming.
+
+Moreover, the move to the initial pose was also too abrupt, and a software bug froze the control frequency at 15~Hz regardless of the interface settings.
+
+To gain full flexibility over the timing, as explained in the previous section, the parameter management logic was inverted. From now on, the control frequency $f_{\mathrm{c}}$, the cycle duration $T_{\mathrm{cycle}}$ and the number of repetitions $N_{\mathrm{plays}}$ are the only variables set by the user. The number of frames per cycle $F$ is no longer a constraint imposed by the source file, but a variable computed dynamically:
+
+\begin{equation}
+    F = f_{\mathrm{c}} \times T_{\mathrm{cycle}}
+\end{equation}
+
+The time interval between two motor commands is thus fixed at $\Delta t = 1/f_{\mathrm{c}}$. Since $F$ generally differs from the number of points $N$ in the motion file, new joint positions must be recomputed to match this exact time grid and so that is the role of interpolation.
+
+\subsubsection{Choosing the Cubic Spline}
+
+We used first the piecewise-linear interpolation which is only class $\mathcal{C}^0$ so the velocity is piecewise constant and discontinuous at the nodes, which forces the motors into "staircase" command changes. To solve this issue, and as used by M. NAKASHIMA in the SWUM simulation \cite{nakashima2012optimizing}, we replaced it with a \textit{periodic cubic spline}, a piecewise polynomial function of degree~3, class $\mathcal{C}^2$ over the whole interval, it means the interpolated position, velocity \emph{and} acceleration are continuous at the nodes. The acceleration discontinuities are thus eliminated at the source, for a compute cost linear in $N$.
+
+The $N$ frames of the source file are indexed on a uniform grid $x_i = i$, $i = 0,\dots,N-1$ (step $h = x_{i+1} - x_i = 1$), and we write $y_i$ for the angular command of a joint at frame $i$. We can notice that each motor is handled independently by the same algorithm. On each interval $[x_i,\, x_{i+1}]$ of uniform step $h = x_{i+1} - x_i$, the trajectory is modeled by a cubic polynomial:
+\begin{equation}
+    S_i(x) = a_i + b_i\,(x - x_i) + c_i\,(x - x_i)^2 + d_i\,(x - x_i)^3
+    \qquad \text{with} \quad x \in [x_i,\, x_{i+1}]
+    \label{eq:spline-cubique}
+\end{equation}
+
+Because $S_i(x)$ is a polynomial of degree~3, its second derivative $S''_i(x)$ is strictly linear on the interval. We can therefore express it directly using linear interpolation between the second derivatives at the nodes, $y''_i = S''_i(x_i)$ and $y''_{i+1} = S''_i(x_{i+1})$. Introducing the barycentric coordinates  and  yields:
+\begin{equation}
+    S''_i(x) = A\,y''_i + B\,y''_{i+1} \quad \text{with} \quad A = \frac{x_{i+1} - x}{h} \quad \text{and} \quad B = 1 - A = \frac{x - x_i}{h}
+\end{equation}
+
+Integrating this expression twice introduces two integration constants, $C_1$ and $C_2$:
+\begin{equation}
+    S_i(x) = \frac{h^2}{6}\,A^3\,y''_i + \frac{h^2}{6}\,B^3\,y''_{i+1} + C_1\,A + C_2\,B
+\end{equation}
+
+Enforcing the $\mathcal{C}^0$ positional boundary conditions at the nodes ($S_i(x_i) = y_i$ at $A=1, B=0$, and $S_i(x_{i+1}) = y_{i+1}$ at $A=0, B=1$) determines these constants as $C_1 = y_i - \frac{h^2}{6}y''_i$ and $C_2 = y_{i+1} - \frac{h^2}{6}y''_{i+1}$. Substituting them back into the expression gives the barycentric formulation:
+\begin{equation}
+    S_i(x) = A\,y_i + B\,y_{i+1}
+    + \frac{h^2}{6}\left[(A^3 - A)\,y''_i + (B^3 - B)\,y''_{i+1}\right]
+    \label{eq:spline-nr}
+\end{equation}
+
+By construction, this formulation inherently satisfies nodal interpolation and $\mathcal{C}^2$ continuity. The coefficients of the canonical form~\eqref{eq:spline-cubique} are then determined by evaluating $S_i$ and its successive derivatives at the node $x = x_i$ ($A=1, B=0$):
+\begin{itemize}
+    \item \textbf{Position ($a_i$)}: $S_i(x_i) = a_i = y_i$
+    \item \textbf{Second derivative ($c_i$)}: $S''_i(x_i) = 2c_i = y''_i \implies c_i = \frac{y''_i}{2}$
+    \item \textbf{Third derivative ($d_i$)}: Differentiating $S''_i(x)$ yields $S'''_i(x_i) = 6d_i = \frac{y''_{i+1} - y''_i}{h} \implies d_i = \frac{y''_{i+1} - y''_i}{6h}$
+    \item \textbf{First derivative ($b_i$)}: Differentiating~\eqref{eq:spline-nr} with respect to $x$ (using $\frac{\mathrm{d}A}{\mathrm{d}x} = -\frac{1}{h}$ and $\frac{\mathrm{d}B}{\mathrm{d}x} = \frac{1}{h}$) and evaluating at $x_i$ gives $S'_i(x_i) = b_i = \frac{y_{i+1} - y_i}{h} - \frac{h}{6}(2y''_i + y''_{i+1})$.
+\end{itemize}
+
+This provides the exact coefficient set for the trajectory segment :
+\begin{equation}
+    a_i = y_i, \qquad
+    b_i = \frac{y_{i+1} - y_i}{h} - \frac{h}{6}\left(2y''_i + y''_{i+1}\right), \qquad
+    c_i = \frac{y''_i}{2}, \qquad
+    d_i = \frac{y''_{i+1} - y''_i}{6h}
+    \label{eq:spline-coeffs}
+\end{equation}
+
+But before solving the problem, we need to understand the limits of a classic interpolation, where the second derivative is forced to zero at the ends. The SWUMANOID's original motion files are designed for a 2-second cycle at 72~Hz, so 144 frames. To assess this method, let us first look at its behavior at a high control frequency (90~Hz).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{graphiques/202607141616_ID_4_Spline_Cubic_Pure_90Hz.png}
+    \caption{Natural interpolation at 90 Hz.}
+    \label{fig:spline_nat_90}
+\end{figure}
+
+At that frequency, the number of recomputed points is large, as the figure~\ref{fig:spline_nat_90} shows, the blue command curve follows the trajectory faithfully. The mathematical defect at the ends exists, but the very high density of points almost entirely masks it at the loop-back around 2 seconds. But the fragility of this approach shows up as soon as we move away from the design frequency by subsampling.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{graphiques/202607141612_ID_4_Spline_Cubic_Pure_50Hz.png}
+    \caption{Natural interpolation at 50 Hz.}
+    \label{fig:spline_nat_50}
+\end{figure}
+
+At 50~Hz, the natural spline starts to reveal its weaknesses, indeed, the plot in the figure~\ref{fig:spline_nat_50} highlights a clearly visible offset at the end of the cycle, the last interpolated frame no longer joins the first frame of the next cycle cleanly, creating a command jump.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{graphiques/202607141611_ID_4_Spline_Cubic_Pure_36Hz.png}
+    \caption{Natural interpolation at 36 Hz.}
+    \label{fig:spline_nat_36}
+\end{figure}
+
+The problem gets drastically worse at very low frequencies. At 36~Hz, half the nominal frequency, the natural boundary conditions completely distort the motion dynamics at the ends. As Figure~\ref{fig:spline_nat_36} shows, there is an drop in the command at the end of the cycle (at 2.05 s). On the physical robot, this offset translated into a particularly violent mechanical jolt, threatening the integrity of the swim.
+
+To kill this command jump and guarantee a smooth loop, the unknowns $y''_i$ at the nodes must be computed differently. Since the trajectory is meant to be repeated, it is modeled as a \emph{periodic} function of period $N$ : node $x_N$ is identified with node $x_0$ ($y_N \equiv y_0$), and the interpolant $S$ is subjected to the periodic boundary conditions
+\begin{equation}
+    S(x_0) = S(x_N), \qquad S'(x_0) = S'(x_N), \qquad S''(x_0) = S''(x_N)
+    \label{eq:periodiques}
+\end{equation}
+While positional and acceleration continuities are inherently satisfied by the barycentric form, velocity continuity must be explicitly enforced. Equating the first derivatives of adjacent segments at each node, $S'_{i-1}(x_i) = S'_i(x_i)$, and assuming a uniform step $h=1$ yields the well-known system of N equations :
+\begin{equation}
+    y''_{i-1} + 4\,y''_i + y''_{i+1} = 6\left(y_{i+1} - 2y_i + y_{i-1}\right)
+    \qquad i = 0,\dots,N-1
+    \label{eq:systeme-cyclique}
+\end{equation}
+where all indices are taken modulo $N$. In matrix form, the periodicity introduces two coupling terms at the corners of the matrix, which becomes \emph{cyclic tridiagonal}:
+\begin{equation}
+    \begin{pmatrix}
+        4 & 1 &        &        & 1 \\
+        1 & 4 & 1      &        &   \\
+          & \ddots & \ddots & \ddots &   \\
+          &        & 1      & 4      & 1 \\
+        1 &        &        & 1      & 4
+    \end{pmatrix}
+    \begin{pmatrix} y''_0 \\ y''_1 \\ \vdots \\ y''_{N-2} \\ y''_{N-1} \end{pmatrix}
+    =
+    6\begin{pmatrix}
+        y_1 - 2y_0 + y_{N-1} \\
+        y_2 - 2y_1 + y_0 \\
+        \vdots \\
+        y_{N-1} - 2y_{N-2} + y_{N-3} \\
+        y_0 - 2y_{N-1} + y_{N-2}
+    \end{pmatrix}
+    \label{eq:matrice-cyclique}
+\end{equation}
+
+\subsubsection{Solving the Cyclic System}
+
+%\paragraph{Sherman--Morrison decomposition and the Thomas algorithm:} 
+
+The system~\eqref{eq:matrice-cyclique} is not tridiagonal, but it still solves in $\mathcal{O}(N)$ thanks to the \textsc{Sherman--Morrison} formula~\cite{numerical_recipes}. Let $A$ be the cyclic matrix on the left side of system~\eqref{eq:matrice-cyclique}, this matrix $A$ is, indeed, not strictly tridiagonal because of its two corner coefficients $A_{0,N-1} = A_{N-1,0} = 1$. To avoid a costly full matrix inversion, we write $A$ as a rank-1 perturbation of an ordinary, strictly tridiagonal matrix $T$ according to~\cite{numerical_recipes}:
+\begin{equation}
+    A = T + u\,v^{\mathsf{T}} \qquad
+    u = \begin{pmatrix} \gamma \\ 0 \\ \vdots \\ 0 \\ 1 \end{pmatrix} \qquad
+    v = \begin{pmatrix} 1 \\ 0 \\ \vdots \\ 0 \\ 1/\gamma \end{pmatrix}
+    \qquad \gamma = -4
+    \label{eq:sherman-morrison-setup}
+\end{equation}
+where $\gamma$ is a free parameter chosen so that $T$ stays well conditioned, here $\gamma = -4$, the opposite of the running diagonal term. The product $u\,v^{\mathsf{T}}$ modifies only the four corners of the matrix:
+\begin{equation}
+    (u\,v^{\mathsf{T}})_{0,0} = \gamma, \quad
+    (u\,v^{\mathsf{T}})_{0,N-1} = \gamma/\gamma = 1, \quad
+    (u\,v^{\mathsf{T}})_{N-1,0} = 1, \quad
+    (u\,v^{\mathsf{T}})_{N-1,N-1} = 1/\gamma
+\end{equation}
+so that $T = A - u\,v^{\mathsf{T}}$ is \emph{exactly} tridiagonal, with diagonal
+\begin{equation}
+    T_{i,i} =
+    \begin{cases}
+        4 - \gamma = 8 & \text{if } i = 0, \\[2pt]
+        4 - \dfrac{1}{\gamma} = 4.25 & \text{if } i = N-1, \\[6pt]
+        4 & \text{otherwise,}
+    \end{cases}
+    \qquad T_{i,i-1} = T_{i,i+1} = 1
+    \label{eq:T-diag}
+\end{equation}
+and sub/super-diagonals all equal to~1 (interior indices). To solve the original system $A\,y'' = d$ without explicitly computing a costly matrix inversion, we apply the \textsc{Sherman--Morrison} formula. This theorem provides the analytical inverse of a matrix that has been modified by a rank-1 update~\cite{numerical_recipes} :
+\begin{equation}
+    A^{-1} = (T + u\,v^{\mathsf{T}})^{-1} = T^{-1} - \frac{T^{-1} u\,v^{\mathsf{T}} T^{-1}}{1 + v^{\mathsf{T}} T^{-1} u}
+\end{equation}
+
+Multiplying both sides by the right-hand vector $d$ yields the solution for $y''$ :
+\begin{equation}
+    y'' = A^{-1} d = T^{-1} d - \frac{T^{-1} u \left(v^{\mathsf{T}} T^{-1} d\right)}{1 + v^{\mathsf{T}} T^{-1} u}
+\end{equation}
+
+To completely avoid the $\mathcal{O}(N^3)$ operation of calculating $T^{-1}$, we define two intermediate vectors $z$ and $w$ such that $z = T^{-1} d$ and $w = T^{-1} u$. Finding these vectors is computationally equivalent to solving two \emph{ordinary}, strictly tridiagonal systems:
+\begin{equation}
+    T z = d \qquad \text{and} \qquad T w = u
+\end{equation}
+
+Substituting $z$ and $w$ back into the analytical solution dramatically simplifies the final equation:
+\begin{equation}
+    y'' = z - \frac{v^{\mathsf{T}} z}{1 + v^{\mathsf{T}} w}\; w
+    \label{eq:sherman-morrison-solution}
+\end{equation}
+
+Furthermore, given the sparse form of $v$, the dot product reduces to a simple scalar evaluation $v^{\mathsf{T}} z = z_0 + z_{N-1}/\gamma$ and likewise for $v^{\mathsf{T}} w$. So only the head and tail components of the vectors matter, and no full matrix is ever formed explicitly.
+
+Finally, each of the two tridiagonal systems $T z = d$ and $T w = u$ is solved by the Thomas algorithm (Tridiagonal Matrix Algorithm, TDMA)~\cite{burden_faires}, an optimized variant of Gaussian elimination specialized for tridiagonal matrices, which operates in $\mathcal{O}(N)$ complexity instead of the $\mathcal{O}(N^3)$ required for a general inversion.
+
+Consider a generic system $T x = r$, where $r$ is the right-hand side vector, representing either $d$ or $u$. Since the sub-diagonals and super-diagonals are all equal to~1, the algorithm runs in two passes:
+
+\begin{enumerate}
+    \item \textbf{Forward sweep (elimination):} We eliminate the sub-diagonal terms row by row. For the very first row ($i=0$), the equation is simply $T_{0,0}\, x_0 + x_1 = r_0$. Dividing by the pivot $T_{0,0}$ isolates $x_0$ and defines our initial modified coefficients:
+    \begin{equation}
+        c'_0 = \frac{1}{T_{0,0}}, \qquad x_0 = \frac{r_0}{T_{0,0}}
+    \end{equation}
+    Then, for $i = 1, \dots, N-1$, we substitute the previous row into the current one. Noting that the effective pivot of row $i$ after eliminating column $i-1$ becomes $m_i = T_{i,i} - c'_{i-1}$, we update the coefficients :
+    \begin{equation}
+        m_i = T_{i,i} - c'_{i-1}, \qquad
+        c'_i = \frac{1}{m_i}, \qquad
+        x_i = \frac{r_i - x_{i-1}}{m_i}
+        \label{eq:thomas-forward}
+    \end{equation}
+    At the end of this pass, the system has been reduced to an equivalent \emph{upper bidiagonal} form.
+    
+    \item \textbf{Back substitution:} We walk the indices in reverse to propagate the corrections left pending by the super-diagonal terms ($c'_i$) during the forward sweep:
+    \begin{equation}
+        x_i \leftarrow x_i - c'_i\, x_{i+1}, \qquad i = N-2,\, N-3,\, \dots,\, 0
+        \label{eq:thomas-backward}
+    \end{equation}
+\end{enumerate}
+
+Each of the two passes costs only $\mathcal{O}(N)$ arithmetic operations, and the matrix $T$ is factorized only once. So the total compute cost therefore stays linear in $N$, which allows the instant recomputation of the high-frequency trajectory for all 21 joints whenever a parameter is adjusted on the interface.
+
+Once the vector $y''$ is known, the closed curve is evaluated at $F$ points evenly spread over one period, \emph{excluding} the joining point which belongs to the next cycle :
+\begin{equation}
+    x_k = k\,\frac{N}{F}, \qquad k = 0,\, 1,\, \dots,\, F-1
+\end{equation}
+so that the number of frames produced respects exactly $F = f_{\mathrm{Hz}} \times T_{\mathrm{cycle}}$ and the next frame ($k = F$, first frame of the next cycle) falls precisely on $S(x_N) = y_0$.
+
+This new formulation solves the discontinuity problem at the source. Taking again the critical case of subsampling at 36~Hz, as we can observe from Figure~\ref{fig:spline_per_36} demonstrates the method's success perfectly :
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{graphiques/202607141717_ID_4_Spline_Cubique_Periodique_36Hz.png}
+    \caption{Periodic interpolation at 36 Hz.}
+    \label{fig:spline_per_36}
+\end{figure}
+
+In the graph we see the command curve, in blue, which anticipates the end of the cycle and joins the start of the next one perfectly smoothly. The transition, after 2 seconds, happens with no break in slope, definitively eliminating the mechanical jolts.
+
+This structural continuity holds naturally at intermediate frequencies. The figure~\ref{fig:spline_per_50} shows that at 50~Hz, where the natural spline had a visible drop, the periodic spline gives a flawless closed loop. The signal chains together seamlessly over infinite cycles.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{graphiques/202607141720_ID_4_Spline_Cubique_50Hz.png}
+    \caption{Periodic interpolation at 50 Hz.}
+    \label{fig:spline_per_50}
+\end{figure}
+
+Finally, at high frequency (90~Hz), the method keeps the very high fidelity of the motion while guaranteeing a perfect join at the ends, as the figure~\ref{fig:spline_per_90} shows below. So the periodic spline is therefore the best choice for the SWUMANOID's motion interpolation, as it guarantees a smooth trajectory at any control frequency.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{graphiques/202607141725_ID_4_Spline_Cubique_Periodique_90Hz.png}
+    \caption{Periodic interpolation at 90 Hz.}
+    \label{fig:spline_per_90}
+\end{figure}
+
+By construction of the periodic interpolant~\eqref{eq:periodiques}, position, velocity and acceleration are continuous at the loop-back so the join between two consecutive cycles is class $\mathcal{C}^2$, just like any interior point of the trajectory. The momentum of the swimming stroke is thus fully preserved from one cycle to the next, and the motor jolts at loop-back are eliminated not approximately but exactly. In practice, the residual velocity discontinuity measured at the join is smaller than the maximum velocity variation observed inside the cycle. Moreover if the source file ends explicitly with a copy of its first frame, this duplicate is removed before fitting so as not to introduce a double node in the period.
+
+
+\subsubsection{Minimum-Jerk Ramp}
+
+For the move to the initial pose, the C++ firmware now generates a degree-5 polynomial approach trajectory (\textit{minimum-jerk}). The normalized time equation is:
+\begin{equation}
+s(t) = 6t^5 - 15t^4 + 10t^3, \quad t \in [0,1]
+\end{equation}
+The joint command at instant $k$ is then computed smoothly by:
+\begin{equation}
+q_k = q_{start} + s\left(\frac{k}{g_{rampSteps}}\right) \cdot (q_{goal} - q_{start})
+\end{equation}
+This software safeguard is paired with a temporary hardware speed limit via the Dynamixel registers, as shown in Table \ref{tab:hardware_profile}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|l|}
+\hline
+\textbf{Register} & \textbf{Address} & \textbf{Value at initialization} \\ \hline
+\texttt{Profile Acceleration} & 108 & \texttt{10} (very gentle acceleration) \\ \hline
+\texttt{Profile Velocity} & 112 & \texttt{40} ($\approx 9$ rpm) \\ \hline
+\end{tabular}
+\caption{Hardware speed limiting of the actuators.}
+\label{tab:hardware_profile}
+\end{table}
+
+To \textbf{fix the CPU loop}, the 15 Hz limitation was resolved by drastically separating the blocking UART calls from the network handling (SSE), and by forcing a reset of the ESP32's hardware timers when the motion starts.
+
+% \section{Implementing a PID controller}
+
+
+
+\subsection{Angular Configuration of the SWUMANOID via the IMU}
+\label{subsubsec:calcul_angle}
+
+This section formalizes, in full, the kinematic processing chain chosen to estimate the \emph{roll} ($\phi$, around the longitudinal axis $X$) and \emph{yaw} ($\psi$, around the vertical $Z$) angles of the SWUMANOID robot from the inertial unit (IMU) housed in the AtomS3R. The unit provides only a three-axis accelerometer $\mathbf{a}=(A_x,A_y,A_z)^{\mathsf T}$ and a three-axis gyroscope $\boldsymbol{\omega}=(G_x,G_y,G_z)^{\mathsf T}$, expressed in the AtomS3R's \emph{board} frame $\mathcal{B}$ neither an attitude quaternion nor a magnetometer is transmitted.
+
+The attitude is therefore reconstructed entirely on the client, transformed into the robot frame $\mathcal{R}$, referenced by a tare operation, then smoothed. The adopted convention is \emph{Z-Up} (the robot's vertical axis pointing up), in line with robotics standards.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.25\linewidth]{schemas/IMU-AtomS3R_Defaut_Axes.png}
+    \caption{Axis orientation of the AtomS3R base.}
+    \label{fig:imu_axes}
+\end{figure}
+
+We write unit quaternions as $q=(q_w,q_x,q_y,q_z)$ (scalar part first), $\otimes$ for the Hamilton product, $q^{*}$ for the conjugate and, for a unit quaternion, $q^{-1}=q^{*}$. The world frame $\mathcal{W}$ is aligned with gravity, $\mathbf{z}_{\mathcal{W}}=(0,0,1)^{\mathsf T}$ pointing up. The AtomS3R's default axes and the SWUMANOID's target frame are shown respectively in the figure~\ref{fig:imu_axes} and~\ref{fig:swumanoid_frame}.
+
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{\textwidth}
+        \centering
+        \includegraphics[width=0.8\linewidth]{schemas/AtomS3R_SWUMANOID_orientation_side_view.png}
+        \caption{Side view of the SWUMANOID.}
+    \end{subfigure}
+
+    \vspace{0.4cm}
+
+    \begin{subfigure}[b]{\textwidth}
+        \centering
+        \includegraphics[width=0.8\linewidth]{schemas/AtomS3R_SWUMANOID_orientation_Back_View.png}
+        \caption{Back view of the SWUMANOID.}
+    \end{subfigure}
+    \caption{Global view of the AtomS3R frame axes relative to the robot's target frame.}
+    \label{fig:swumanoid_frame}
+\end{figure}
+
+\subsubsection{Acquisition and Fusion of the Raw Data}
+\label{subsubsec:acquisition}
+
+The firmware transmits acceleration in milli-$g$ and angular velocity in deci-degrees per second so the physical quantities are recovered by
+\begin{equation}
+\mathbf{a}=\frac{1}{1000}\,\mathbf{a}_{\text{raw}}\ [\,g\,],
+\qquad
+\boldsymbol{\omega}=\frac{1}{10}\,\boldsymbol{\omega}_{\text{raw}}\ [\,^\circ\!/\mathrm{s}\,]
+\end{equation}
+A dead zone is then applied component by component to the gyroscope, to neutralize the rest noise responsible for the slow yaw drift:
+\begin{equation}
+\tilde{\omega}_i=
+\begin{cases}
+0 & \text{if } |\omega_i|<\omega_{\mathrm{db}},\\
+\omega_i & \text{otherwise,}
+\end{cases}
+\qquad i\in\{x,y,z\},\quad \omega_{\mathrm{db}}=1{.}2~^\circ\!/\mathrm{s}
+\end{equation}
+
+At rest, the accelerometer measures the reaction to gravity, a vector of unit norm (in $g$) collinear with the local vertical, its projection on the frame axes gives a \emph{drift-free} estimate of the tilt. Assuming a quasi-static sensor, the measured gravity is written in $\mathcal B$ as
+\begin{equation}
+\mathbf{a}=\mathbf{R}(\phi,\theta)^{\mathsf T}
+\begin{pmatrix}0\\0\\1\end{pmatrix}
+\end{equation}
+which, expanding the rotation matrix for a roll $\phi$ (around $X$) and a pitch $\theta$ (around $Y$), leads to the components
+\begin{equation}
+A_x=-\sin\theta,\qquad
+A_y=\cos\theta\,\sin\phi,\qquad
+A_z=\cos\theta\,\cos\phi
+\end{equation}
+From this, by elimination and using the $\operatorname{arctan2}$ function, which resolves the quadrant ambiguity over $[-\pi,\pi]$, we get the \emph{instantaneous} tilt angles:
+\begin{empheq}[box=\fbox]{align}
+\phi_{\text{acc}} &= \operatorname{arctan2}\!\big(A_y,\;A_z\big) \label{eq:roll_acc}\\
+\theta_{\text{acc}} &= \operatorname{arctan2}\!\Big(-A_x,\;\sqrt{A_y^{2}+A_z^{2}}\Big) \label{eq:pitch_acc}
+\end{empheq}
+Equation~\eqref{eq:roll_acc} is the physical basis of the roll estimate but the accelerometer has limits. Indeed, it is \emph{blind to yaw}, the gravity is invariant under rotation about the vertical, so $\psi$ appears in none of the equations above, and it is heavily noisy as soon as the sensor undergoes its own acceleration (vibrations from the 21 Dynamixel motors, shocks), the measured vector then no longer being purely gravitational.
+
+The gyroscope provides the instantaneous angular velocity and allows, through integration, a fine and low-latency tracking of orientation, it suffers, on the other hand, from a cumulative drift, an integrated bias. The fusion approach therefore combines the long-term stability of the accelerometer~\eqref{eq:roll_acc}--\eqref{eq:pitch_acc} with the short-term reactivity of the gyroscope. Rather than manipulate Euler angles (prone to gimbal lock), the orientation is carried by an attitude quaternion $q_{\text{raw}}$ ($\mathcal B\rightarrow\mathcal W$) whose kinematics obey this equation :
+\begin{equation}
+\dot{q}=\tfrac{1}{2}\,q\otimes
+\begin{pmatrix}0\\ \boldsymbol{\omega}\end{pmatrix}
+\label{eq:kinematics}
+\end{equation}
+with $\boldsymbol{\omega}$ expressed in the body frame. The implementation integrates~\eqref{eq:kinematics} with the exact exponential map on each interval $\Delta t$ measured locally, it means setting $\boldsymbol{\omega}$ in $\mathrm{rad/s}$, $\Omega=\lVert\boldsymbol{\omega}\rVert$ and $\mathbf{n}=\boldsymbol{\omega}/\Omega$,
+\begin{equation}
+\delta q=\Big(\cos\tfrac{\Omega\,\Delta t}{2},\;\mathbf{n}\,\sin\tfrac{\Omega\,\Delta t}{2}\Big),
+\qquad
+q_{\text{raw}}\leftarrow q_{\text{raw}}\otimes\delta q
+\label{eq:gyro_step}
+\end{equation}
+The post-multiplication on the right, reflects the \emph{local} nature of the rotation measured by the gyroscope.
+
+Let $\hat{\mathbf{u}}=\mathbf{a}/\lVert\mathbf{a}\rVert$ be the direction of gravity measured in $\mathcal B$. The initial quaternion is the shortest arc bringing $\hat{\mathbf{u}}$ onto $\mathbf{z}_{\mathcal W}$:
+\begin{equation}
+q_{\text{raw}}^{(0)}=\frac{\big(1+\hat{\mathbf{u}}\cdot\mathbf{z}_{\mathcal W},\;\hat{\mathbf{u}}\times\mathbf{z}_{\mathcal W}\big)}{\big\lVert\big(1+\hat{\mathbf{u}}\cdot\mathbf{z}_{\mathcal W},\;\hat{\mathbf{u}}\times\mathbf{z}_{\mathcal W}\big)\big\rVert}
+\label{eq:seed}
+\end{equation}
+so that the estimate starts flat, with the yaw arbitrarily fixed to zero, a purely relative heading.
+
+At each sample, the gyroscope prediction~\eqref{eq:gyro_step} is realigned on gravity \emph{only when} the measurement is judged quasi-static, that is $\big|\,\lVert\mathbf{a}\rVert-1\,\big|\le\tau$ with $\tau=0{.}25\,g$, this test discards the self-acceleration phases, where gravity is masked. The predicted vertical in the body frame is
+\begin{equation}
+\hat{\mathbf{g}}_{\text{pred}}=q_{\text{raw}}^{-1}\otimes\mathbf{z}_{\mathcal W}\otimes q_{\text{raw}}
+\end{equation}
+and we build the correction quaternion $\delta q_c$ realizing the shortest arc from the \emph{measured} vertical $\hat{\mathbf{u}}$ to the \emph{predicted} vertical $\hat{\mathbf{g}}_{\text{pred}}$, same form as in~\eqref{eq:seed}. This correction is applied only \emph{partially}, by spherical interpolation from the identity with a gain $\mu$, then composed on the right and renormalized :
+\begin{equation}
+q_{\text{raw}}\leftarrow\frac{q_{\text{raw}}\otimes\operatorname{Slerp}\!\big(\mathbf{1},\,\delta q_c,\,\mu\big)}{\big\lVert\,q_{\text{raw}}\otimes\operatorname{Slerp}\!\big(\mathbf{1},\,\delta q_c,\,\mu\big)\,\big\rVert},
+\qquad \mu=0{.}02
+\label{eq:complementary}
+\end{equation}
+The operator $\operatorname{Slerp}\!\big(\mathbf{1},\,\delta q_c,\,\mu\big)$ performs a Spherical Linear Interpolation by applying a small gain ($\mu = 0.02$), it computes a fractional rotation representing only a $2\%$ step toward the accelerometer's estimated correction~\cite{madgwick2010}.
+
+The pair of equations \eqref{eq:gyro_step} and \eqref{eq:complementary} thus realizes an explicit \emph{complementary filter} on the quaternion space~\cite{mahony2008}. The gyroscope handles the high-frequency dynamics, which areresponsive but prone to integration drift, while the accelerometer corrects the low-frequency drift of the roll and pitch angles by anchoring them to the true gravity vector. This geometric structure provides an explicit alternative to popular gradient-descent-based methods, such as the Madgwick filter~\cite{madgwick2010}.
+
+Furthermore, because the gravity vector is invariant to rotations around the vertical axis, the accelerometer provides no observable information about the yaw. Consequently, the yaw estimate is never corrected and relies entirely on the gyroscope integration~\eqref{eq:gyro_step}. Without an absolute magnetic reference, this relative heading remains \emph{reversible}, so a physical return to the initial orientation brings the numerical yaw exactly back to its starting state, free from arbitrary correction twisting. The resulting quaternion $q_{\text{raw}}$ represents the board's absolute attitude, $\mathcal B\rightarrow\mathcal W$.
+
+\subsubsection{Frame Change and Calibration}
+\label{subsubsec:calib}
+\label{subsubsec:tare}
+
+The AtomS3R is not mounted along the SWUMANOID's anatomical axes, indeed, it sits in the head with a mechanical tilt of $37{.}2^\circ$ as we can see in the figure~\ref{fig:robot_tilt}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{schemas/AtomS3R_SWUMANOID_orientation_side_view_zoomed.png}
+    \caption{Detailed view of the AtomS3R's mechanical tilt in the robot's head.}
+    \label{fig:robot_tilt}
+\end{figure}
+
+To express the attitude in the robot's Z-Up frame $\mathcal R$, we apply a constant rigid transformation $q_{\text{calib}}$ corresponding to the following sequence of \emph{intrinsic} rotations, about the successive local axes, it demonstrated in the figure~\ref{fig:rotation_repere_schema} :
+\begin{enumerate}
+  \item $R_1$: a $+37{.}2^\circ$ rotation about the board's \emph{initial} $X$ axis, which compensates the mechanical tilt and straightens the vertical axis \emph{upward}.
+  \item $R_2$: a $-90^\circ$ rotation about the \emph{new} $Z'$ axis, which aligns the board axes with the robot's front.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]{schemas/AtomS3r_Changement_Repere_Transformation.png}
+    \caption{Diagram of the successive rotations applied to the board frame.}
+    \label{fig:rotation_repere_schema}
+\end{figure}
+
+With the elementary rotation matrices :
+\begin{equation}
+R_x(\alpha)=\begin{pmatrix}1&0&0\\0&\cos\alpha&-\sin\alpha\\0&\sin\alpha&\cos\alpha\end{pmatrix},
+\qquad
+R_z(\beta)=\begin{pmatrix}\cos\beta&-\sin\beta&0\\\sin\beta&\cos\beta&0\\0&0&1\end{pmatrix}
+\end{equation}
+the \emph{intrinsic} composition $R_1$ then $R_2$ about the already-turned axis is obtained by post-multiplication:
+\begin{equation}
+\mathbf{R}_{\text{calib}}=R_x(37{.}2^\circ)\,R_z(-90^\circ),
+\qquad
+R_z(-90^\circ)=\begin{pmatrix}0&1&0\\-1&0&0\\0&0&1\end{pmatrix}
+\label{eq:Rcalib}
+\end{equation}
+
+But the code does not use $\mathbf{R}_{\text{calib}}$ but its equivalent quaternion, to eliminate any singularity. With the axis angle parametrization $q_{\mathbf{n}}(\gamma)=\big(\cos\tfrac{\gamma}{2},\,\mathbf{n}\sin\tfrac{\gamma}{2}\big)$,
+\begin{equation}
+q_x=q_{\mathbf{e}_x}(37{.}2^\circ)=\big(\cos 18{.}6^\circ,\,\sin 18{.}6^\circ,\,0,\,0\big),
+\qquad
+q_z=q_{\mathbf{e}_z}(-90^\circ)=\Big(\tfrac{\sqrt{2}}{2},\,0,\,0,\,-\tfrac{\sqrt{2}}{2}\Big)
+\end{equation}
+\begin{equation}
+\boxed{\,q_{\text{calib}}=q_x\otimes q_z\,}
+\label{eq:qcalib}
+\end{equation}
+The robot's absolute attitude, the mount being fixed to the body, results from the post-multiplication
+\begin{equation}
+\boxed{\,q_{\text{robot}}=q_{\text{raw}}\otimes q_{\text{calib}}\,}
+\label{eq:qrobot}
+\end{equation}
+
+In goal to let the user sets the current pose as the origin $(0,0,0)$, we store the inverse (conjugate) of the transformed attitude at the trigger instant, $q_{\text{robot}}^{(0)}$:
+\begin{equation}
+q_{\text{tare}}=\big(q_{\text{robot}}^{(0)}\big)^{-1}=\big(q_{\text{robot}}^{(0)}\big)^{*}
+\label{eq:qtare}
+\end{equation}
+then the displayed attitude is referenced at each sample by
+\begin{equation}
+\boxed{\,q_{\text{display}}=q_{\text{tare}}\otimes q_{\text{robot}}\,}
+\label{eq:qdisplay}
+\end{equation}
+By construction, $q_{\text{display}}=\mathbf{1}$ (identity, i.e. $0^\circ$) when $q_{\text{robot}}=q_{\text{robot}}^{(0)}$, since $q_{\text{tare}}\otimes q_{\text{robot}}^{(0)}=\big(q_{\text{robot}}^{(0)}\big)^{-1}\otimes q_{\text{robot}}^{(0)}=\mathbf{1}$, any return to the reference pose brings the display rigorously back to zero. This mechanism is also initialized automatically at the first valid sample, which guarantees a zero display at startup, regardless of the board's hardware orientation.
+
+\subsubsection{Euler Angle Extraction and Low-Pass Filtering}
+\label{subsubsec:extract_filter}
+
+The final angles are extracted from $q_{\text{display}}$ by conversion to Tait--Bryan angles in the order $Z\!-\!Y\!-\!X$. This choice is justified by the structure of the problem, in fact, in a three-axis decomposition, only the \emph{intermediate} axis carries the singularity at $\pm90^\circ$. By placing the \emph{pitch} ($Y$) in the intermediate position, we guarantee that the \emph{roll} ($X$) and the \emph{yaw} ($Z$), the outer axes, stay readable without degeneracy as long as the pitch remains far from $\pm90^\circ$, which is the case for a robot swimming flat. Writing $q_{\text{display}}=(q_w,q_x,q_y,q_z)$, the elements of the associated rotation matrix give :
+\begin{empheq}[box=\fbox]{align}
+\phi\ (\text{roll}) &= \operatorname{arctan2}\!\big(2(q_yq_z+q_wq_x),\;1-2(q_x^{2}+q_y^{2})\big) \label{eq:roll}\\
+\theta\ (\text{pitch}) &= \arcsin\!\big(2(q_wq_y-q_xq_z)\big) \label{eq:pitch}\\
+\psi\ (\text{yaw}) &= \operatorname{arctan2}\!\big(2(q_xq_y+q_wq_z),\;1-2(q_y^{2}+q_z^{2})\big) \label{eq:yaw}
+\end{empheq}
+Only roll~\eqref{eq:roll} and yaw~\eqref{eq:yaw} are kept for display, the yaw follows the right-hand rule about the upward vertical, it means that a positive physical heading produces a positive $\psi$, in agreement with the 3D avatar which is driven directly by $q_{\text{display}}$. The displayed values are $\phi^{\circ}=\tfrac{180}{\pi}\phi$ and $\psi^{\circ}=\tfrac{180}{\pi}\psi$.
+
+\paragraph{Low-pass filter :} Despite the fusion, the angles $\phi^{\circ}$ and $\psi^{\circ}$ keep a residual noise, the IMU measurement noise, motor-induced vibrations, and micro-oscillations at rest. A first-order low-pass filter with exponential moving average is applied \emph{only} to these two final angles. In the continuous regime, away from an angular discontinuity, the discrete recurrence is
+\begin{equation}
+\boxed{\,y[n]=\alpha\,x[n]+(1-\alpha)\,y[n-1]\,},\qquad \alpha=0{.}2
+\label{eq:ema}
+\end{equation}
+where $x[n]$ is the raw extracted angle~\eqref{eq:roll} or~\eqref{eq:yaw} and $y[n]$ the smoothed displayed value. To avoid any artifact when crossing the $\pm180^\circ$ discontinuity, the implementation works on the \emph{shortest arc} and the difference $x[n]-y[n-1]$ is brought back into $(-180^\circ,180^\circ]$ before weighting :
+\begin{equation}
+\Delta[n]=\big((x[n]-y[n-1]+180^\circ)\bmod 360^\circ\big)-180^\circ,
+\qquad
+y[n]=y[n-1]+\alpha\,\Delta[n]
+\label{eq:ema_wrap}
+\end{equation}
+the output itself being folded back into $(-180^\circ,180^\circ]$, away from the discontinuity, \eqref{eq:ema_wrap} is strictly equivalent to~\eqref{eq:ema}. The associated cutoff frequency ($-3$~dB) depends on the sampling period $T_s$, the stream is sent at a variable rate and satisfies exactly :
+\begin{equation}
+\cos\!\big(2\pi f_c T_s\big)=1-\frac{\alpha^{2}}{2(1-\alpha)},
+\qquad\text{so, for }\alpha\ll1,\quad
+f_c\approx\frac{\alpha}{2\pi\sqrt{1-\alpha}\;T_s}\approx\frac{0{.}0356}{T_s}
+\end{equation}
+For a typical rate $f_s=1/T_s\approx50~\mathrm{Hz}$, we get $f_c\approx1{.}8~\mathrm{Hz}$, which effectively attenuates the mechanical vibrations while preserving the dynamics of the swimming stroke. Finally, the 3D avatar model is driven directly by the quaternion $q_{\text{display}}$ demonstrated in the equation \eqref{eq:qdisplay}, unfiltered and free of gimbal lock, while only the numerical display, HUD, receives the smoothed and rounded values $\operatorname{round}(y[n])$.
 
 \end{document}
