@@ -156,7 +156,7 @@ When I joined the project, it was in a transition phase, the previous SWUMANOID,
 
 Building the robot at full human size is not practical, so its scale was reduced. The robot is roughly 50\% of the real swimmer's size \cite{chung2013free} \cite{chung2014swimming}, but the arms of the new version were modeled at 60\% of full scale to make place for the new motors. These motors are more powerful and, above all, IP68-certified, so fully waterproof, which removes any risk of short circuits. The robot weighs about 7.3 kg, close to 10\% of an adult swimmer's weight, in line with the earlier models that weighed between 7.12 kg and 7.4 kg \cite{chung2013free} \cite{nakashima2016realization}.
 
-I joined the SWUMANOID team, a group of three where I work alongside my two supervisors, YANADORI-san and NAGATA-san. When I arrived, the team was finishing tests on new coatings for the 3D-printed parts and before that, the parts filled up with water, which changed the buoyancy and sank the robot. The multi-layer waterproofing process, detailed in the figure \ref{fig:waterproof}, was a decisive step for the integrity of the whole system. We settled on urethane as the coating for the PLA+ printed parts which solved the water infiltration problem, and the robot could finally float the moment I arrived, which had not been the case before.
+I joined the SWUMANOID team, a group of three where I work alongside my two supervisors, M. YANADORI and M. NAGATA. When I arrived, the team was finishing tests on new coatings for the 3D-printed parts and before that, the parts filled up with water, which changed the buoyancy and sank the robot. The multi-layer waterproofing process, detailed in the figure \ref{fig:waterproof}, was a decisive step for the integrity of the whole system. We settled on urethane as the coating for the PLA+ printed parts which solved the water infiltration problem, and the robot could finally float the moment I arrived, which had not been the case before.
 
 \begin{figure}[H]
     \centering
@@ -254,7 +254,7 @@ During the experiment itself, I operate the SWUMANOID from the web interface I b
 \label{sec:web_interface_sec}
 \subsection{Code Migration and Getting Started}
 
-When I joined the SWUMANOID project, my first big task was to take over and develop the firmware of the robot's embedded controller. On my first day, YANADORI-san and NAGATA-san handed me a set of requirements written during their earlier pool experiments, where they had spotted several critical weaknesses in the old control system.
+When I joined the SWUMANOID project, my first big task was to take over and develop the firmware of the robot's embedded controller. On my first day, M. YANADORI and M. NAGATA handed me a set of requirements written during their earlier pool experiments, where they had spotted several critical weaknesses in the old control system.
 
 As said in the previous section, the old microcontroller has some issues, in fact, the control frequency was locked at 72 Hz, which produced mechanical jerks, the Wi-Fi link dropped packets frequently and logging went to an SD card that turned out to be far too slow, sometimes stalling the main code. My overall goal, then, was to improve the robot's performance, stability, and user interface.
 
@@ -1183,9 +1183,9 @@ Commanded cycle (s) & Frames & Real cycle (s) & $f_{\text{real}}$ (Hz) \\ \hline
 
 The real frequency is invariant ($\approx 89.4 \pm 0.5$\,Hz) and $\text{real cycle} = \text{commanded cycle} \times 100/f_{\text{real}}$. Furthermore, we can see in the table that the 1.80\,s setting hits the target swimming cycle of 2.00\,s.
 
- This campaign on the real robot fully confirms the budget model and leads to a parameter set determined end to end by experiment, which will serve as the reference for the future swimming experiments. 
+This campaign on the real robot fully confirms the budget model and leads to a parameter set determined by experiment, which will serve as the reference for the future swimming experiments. 
  
- \paragraph{Optimal parameters retained :}
+\paragraph{Optimal parameters retained :}
 \begin{itemize}
     \item \textbf{Command rate}: 100\,Hz.
     \item \textbf{Logged motors}: 21, the whole body.
@@ -1198,49 +1198,69 @@ This setting brings together the full telemetry of the 21 joints, a high and fai
 
 \section{Motion Kinematics and Interpolation}
 \label{sec:method_interpolation}
+
 \subsection{The Problem of Previous System}
 
-Although the new hardware configuration (described in Section \ref{sec:motors_board_configuration}) allows control at 200 Hz, its development took significant time to design and deliver. During that wait, the pool tests had to run on the old configuration, capped at very low frequencies (between 36 Hz and 50 Hz) because of a low baud rate. But far from being wasted time, this temporary hardware constraint made us aware of some flaws in our algorithm. At 200 Hz, the density of command points hides the mathematical interpolation errors. At 36 Hz, though, the trajectory's continuity defects become large and physically destructive for the robot's swimming.
+In the first system, we could'nt change the frequency of control and the number of frames of the motion file. So a linear interpolation was implemented but used to connect the motion frames guaranteed position continuity and not the continuity of its derivatives, so at each node, the commanded velocity changed discontinuously (theoretically infinite acceleration), which produced jerky motion. In particular, during the cyclic playback of a motion, the repetition of the same file, the last frame usually did not coincide with the first and the loop-back caused a jump in position and velocity, and therefore a mechanical jolt at every cycle start. 
 
-The linear interpolation originally used to connect the motion frames guaranteed position continuity, but not the continuity of its derivatives: at each node, the commanded velocity changed discontinuously (theoretically infinite acceleration), which produced jerky motion. In particular, during the cyclic playback of a motion, so the repetition of the same file, the last frame usually did not coincide with the first: the loop-back caused a jump in position and velocity, and therefore a mechanical jolt at every cycle start.
+Before developping this section we can notice that, although the new hardware configuration (described in Section \ref{sec:motors_board_configuration}) allows control at 200 Hz, its development took significant time to design and deliver. During that wait, the pool tests had to run on the old configuration, capped at very low frequencies (between 36 Hz and 50 Hz) because of a low baud rate. But this temporary hardware constraint made us aware of some flaws in our algorithm. In fact at high frequency the density of command points hides the mathematical interpolation errors but at low frequency, though, the trajectory's continuity defects become large and physically destructive for the robot's swimming.
 
-The move to the initial pose was also too abrupt, and a software bug froze the control frequency at 15~Hz regardless of the interface settings.
+Moreover, the move to the initial pose was also too abrupt, and a software bug froze the control frequency at 15~Hz regardless of the interface settings.
 
-To gain full flexibility over the timing, the parameter management logic was inverted. From now on, the control frequency ($f_{\mathrm{Hz}}$), the cycle duration ($T_{\mathrm{cycle}}$) and the number of repetitions ($N_{\mathrm{plays}}$) are the only variables set by the user. The number of frames per cycle ($F$) is no longer a constraint imposed by the source file, but a variable computed dynamically:
+To gain full flexibility over the timing, as explained in the previous section, the parameter management logic was inverted. From now on, the control frequency $f_{\mathrm{c}}$, the cycle duration $T_{\mathrm{cycle}}$ and the number of repetitions $N_{\mathrm{plays}}$ are the only variables set by the user. The number of frames per cycle $F$ is no longer a constraint imposed by the source file, but a variable computed dynamically:
 
 \begin{equation}
-    F = f_{\mathrm{Hz}} \times T_{\mathrm{cycle}}
+    F = f_{\mathrm{c}} \times T_{\mathrm{cycle}}
 \end{equation}
 
-The time interval between two motor commands is thus rigorously fixed at $\Delta t = 1/f_{\mathrm{Hz}}$. Since $F$ generally differs from the number of points $N$ in the motion file, new joint positions must be recomputed to match this exact time grid: that is the role of interpolation.
+The time interval between two motor commands is thus fixed at $\Delta t = 1/f_{\mathrm{c}}$. Since $F$ generally differs from the number of points $N$ in the motion file, new joint positions must be recomputed to match this exact time grid and so that is the role of interpolation.
 
 \subsection{Choosing the Cubic Spline}
 
-Piecewise-linear interpolation is only class $\mathcal{C}^0$: the velocity is piecewise constant and discontinuous at the nodes, which forces the motors into "staircase" command changes. We replace it with a \textit{periodic cubic spline}, a piecewise polynomial function of degree~3, class $\mathcal{C}^2$ over the whole interval: the interpolated position, velocity \emph{and} acceleration are continuous at the nodes. The acceleration discontinuities (infinite jerk) are thus eliminated at the source, for a compute cost linear in $N$.
+We used first the piecewise-linear interpolation which is only class $\mathcal{C}^0$ so the velocity is piecewise constant and discontinuous at the nodes, which forces the motors into "staircase" command changes. To solve this issue, and as used by M. NAKASHIMA in the SWUM simulation \cite{nakashima2012optimizing}, we replaced it with a \textit{periodic cubic spline}, a piecewise polynomial function of degree~3, class $\mathcal{C}^2$ over the whole interval, it means the interpolated position, velocity \emph{and} acceleration are continuous at the nodes. The acceleration discontinuities are thus eliminated at the source, for a compute cost linear in $N$.
 
-The $N$ frames of the source file are indexed on a uniform grid $x_i = i$, $i = 0,\dots,N-1$ (step $h = x_{i+1} - x_i = 1$), and we write $y_i$ for the angular command of a joint at frame $i$ (each motor is handled independently by the same algorithm). On each interval $[x_i,\, x_{i+1}]$, the trajectory is modeled by a cubic polynomial
-
+The $N$ frames of the source file are indexed on a uniform grid $x_i = i$, $i = 0,\dots,N-1$ (step $h = x_{i+1} - x_i = 1$), and we write $y_i$ for the angular command of a joint at frame $i$. We can notice that each motor is handled independently by the same algorithm. On each interval $[x_i,\, x_{i+1}]$ of uniform step $h = x_{i+1} - x_i$, the trajectory is modeled by a cubic polynomial:
 \begin{equation}
     S_i(x) = a_i + b_i\,(x - x_i) + c_i\,(x - x_i)^2 + d_i\,(x - x_i)^3
     \qquad \text{with} \quad x \in [x_i,\, x_{i+1}]
     \label{eq:spline-cubique}
 \end{equation}
 
-It is convenient to reparametrize each interval by the barycentric weights $A = (x_{i+1} - x)/h$ and $B = 1 - A$, and to express $S_i$ in terms of the values $y_i$ and the second derivatives $y''_i = S''(x_i)$ at the nodes:
+Because $S_i(x)$ is a polynomial of degree~3, its second derivative $S''_i(x)$ is strictly linear on the interval. We can therefore express it directly using linear interpolation between the second derivatives at the nodes, $y''_i = S''_i(x_i)$ and $y''_{i+1} = S''_i(x_{i+1})$. Introducing the barycentric coordinates  and  yields:
+\begin{equation}
+    S''_i(x) = A\,y''_i + B\,y''_{i+1} \quad \text{with} \quad A = \frac{x_{i+1} - x}{h} \quad \text{and} \quad B = 1 - A = \frac{x - x_i}{h}
+\end{equation}
+
+Integrating this expression twice introduces two integration constants, $C_1$ and $C_2$:
+\begin{equation}
+    S_i(x) = \frac{h^2}{6}\,A^3\,y''_i + \frac{h^2}{6}\,B^3\,y''_{i+1} + C_1\,A + C_2\,B
+\end{equation}
+
+Enforcing the $\mathcal{C}^0$ positional boundary conditions at the nodes ($S_i(x_i) = y_i$ at $A=1, B=0$, and $S_i(x_{i+1}) = y_{i+1}$ at $A=0, B=1$) determines these constants as $C_1 = y_i - \frac{h^2}{6}y''_i$ and $C_2 = y_{i+1} - \frac{h^2}{6}y''_{i+1}$. Substituting them back into the expression gives the barycentric formulation:
 \begin{equation}
     S_i(x) = A\,y_i + B\,y_{i+1}
     + \frac{h^2}{6}\left[(A^3 - A)\,y''_i + (B^3 - B)\,y''_{i+1}\right]
     \label{eq:spline-nr}
 \end{equation}
-By construction, this form satisfies interpolation at the nodes ($S_i(x_i) = y_i$, $S_i(x_{i+1}) = y_{i+1}$, $\mathcal{C}^0$ continuity) as well as continuity of the second derivative, since $S''_i(x) = A\,y''_i + B\,y''_{i+1}$ is linear on the interval and equals exactly $y''_i$ and $y''_{i+1}$ at its ends. The coefficients of the canonical form~\eqref{eq:spline-cubique} follow directly:
+
+By construction, this formulation inherently satisfies nodal interpolation and $\mathcal{C}^2$ continuity. The coefficients of the canonical form~\eqref{eq:spline-cubique} are then determined by evaluating $S_i$ and its successive derivatives at the node $x = x_i$ ($A=1, B=0$):
+\begin{itemize}
+    \item \textbf{Position ($a_i$)}: $S_i(x_i) = a_i = y_i$
+    \item \textbf{Second derivative ($c_i$)}: $S''_i(x_i) = 2c_i = y''_i \implies c_i = \frac{y''_i}{2}$
+    \item \textbf{Third derivative ($d_i$)}: Differentiating $S''_i(x)$ yields $S'''_i(x_i) = 6d_i = \frac{y''_{i+1} - y''_i}{h} \implies d_i = \frac{y''_{i+1} - y''_i}{6h}$
+    \item \textbf{First derivative ($b_i$)}: Differentiating~\eqref{eq:spline-nr} with respect to $x$ (using $\frac{\mathrm{d}A}{\mathrm{d}x} = -\frac{1}{h}$ and $\frac{\mathrm{d}B}{\mathrm{d}x} = \frac{1}{h}$) and evaluating at $x_i$ gives $S'_i(x_i) = b_i = \frac{y_{i+1} - y_i}{h} - \frac{h}{6}(2y''_i + y''_{i+1})$.
+\end{itemize}
+
+This provides the exact coefficient set for the trajectory segment :
 \begin{equation}
     a_i = y_i, \qquad
     b_i = \frac{y_{i+1} - y_i}{h} - \frac{h}{6}\left(2y''_i + y''_{i+1}\right), \qquad
     c_i = \frac{y''_i}{2}, \qquad
     d_i = \frac{y''_{i+1} - y''_i}{6h}
+    \label{eq:spline-coeffs}
 \end{equation}
 
-But before solving the problem, we need to understand the limits of a classic ("natural") interpolation, where the second derivative is forced to zero at the ends. The SWUMANOID's original motion files are designed for a 2-second cycle at 72~Hz, so 144 frames. To assess this method, let us first look at its behavior at a high control frequency (90~Hz). At that frequency, the number of recomputed points is large. As Figure~\ref{fig:spline_nat_90} shows, the blue command curve follows the trajectory faithfully. The mathematical defect at the ends exists, but the very high density of points almost entirely masks it at the loop-back around 2 seconds.
+But before solving the problem, we need to understand the limits of a classic interpolation, where the second derivative is forced to zero at the ends. The SWUMANOID's original motion files are designed for a 2-second cycle at 72~Hz, so 144 frames. To assess this method, let us first look at its behavior at a high control frequency (90~Hz).
 
 \begin{figure}[H]
     \centering
@@ -1249,7 +1269,7 @@ But before solving the problem, we need to understand the limits of a classic ("
     \label{fig:spline_nat_90}
 \end{figure}
 
-But the fragility of this approach shows up as soon as we move away from the design frequency by subsampling. At 50~Hz, the natural spline starts to reveal its weaknesses. The plot in Figure~\ref{fig:spline_nat_50} highlights a clearly visible offset at the end of the cycle: the last interpolated frame no longer joins the first frame of the next cycle cleanly, creating a command jump.
+At that frequency, the number of recomputed points is large, as the figure~\ref{fig:spline_nat_90} shows, the blue command curve follows the trajectory faithfully. The mathematical defect at the ends exists, but the very high density of points almost entirely masks it at the loop-back around 2 seconds. But the fragility of this approach shows up as soon as we move away from the design frequency by subsampling.
 
 \begin{figure}[H]
     \centering
@@ -1258,7 +1278,7 @@ But the fragility of this approach shows up as soon as we move away from the des
     \label{fig:spline_nat_50}
 \end{figure}
 
-The problem gets drastically worse at very low frequencies. At 36~Hz, half the nominal frequency, the natural boundary conditions completely distort the motion dynamics at the ends. As Figure~\ref{fig:spline_nat_36} shows, there is an abrupt drop in the command at the end of the cycle (at 2.05 s). On the physical robot, this massive offset translated into a particularly violent mechanical jolt, threatening the integrity of the swim.
+At 50~Hz, the natural spline starts to reveal its weaknesses, indeed, the plot in the figure~\ref{fig:spline_nat_50} highlights a clearly visible offset at the end of the cycle, the last interpolated frame no longer joins the first frame of the next cycle cleanly, creating a command jump.
 
 \begin{figure}[H]
     \centering
@@ -1267,12 +1287,14 @@ The problem gets drastically worse at very low frequencies. At 36~Hz, half the n
     \label{fig:spline_nat_36}
 \end{figure}
 
-To kill this command jump and guarantee a smooth loop, the unknowns $y''_i$ at the nodes must be computed differently. Since the trajectory is meant to be repeated, it is modeled as a \emph{periodic} function of period $N$: node $x_N$ is identified with node $x_0$ ($y_N \equiv y_0$), and the interpolant $S$ is subjected to the periodic boundary conditions
+The problem gets drastically worse at very low frequencies. At 36~Hz, half the nominal frequency, the natural boundary conditions completely distort the motion dynamics at the ends. As Figure~\ref{fig:spline_nat_36} shows, there is an drop in the command at the end of the cycle (at 2.05 s). On the physical robot, this offset translated into a particularly violent mechanical jolt, threatening the integrity of the swim.
+
+To kill this command jump and guarantee a smooth loop, the unknowns $y''_i$ at the nodes must be computed differently. Since the trajectory is meant to be repeated, it is modeled as a \emph{periodic} function of period $N$ : node $x_N$ is identified with node $x_0$ ($y_N \equiv y_0$), and the interpolant $S$ is subjected to the periodic boundary conditions
 \begin{equation}
     S(x_0) = S(x_N), \qquad S'(x_0) = S'(x_N), \qquad S''(x_0) = S''(x_N)
     \label{eq:periodiques}
 \end{equation}
-which guarantee continuity of position, velocity \emph{and} acceleration when passing from one cycle to the next. Continuity of the first derivative gives, with a uniform step $h = 1$, the system of $N$ equations
+While positional and acceleration continuities are inherently satisfied by the barycentric form, velocity continuity must be explicitly enforced. Equating the first derivatives of adjacent segments at each node, $S'_{i-1}(x_i) = S'_i(x_i)$, and assuming a uniform step $h=1$ yields the well-known system of N equations :
 \begin{equation}
     y''_{i-1} + 4\,y''_i + y''_{i+1} = 6\left(y_{i+1} - 2y_i + y_{i-1}\right)
     \qquad i = 0,\dots,N-1
@@ -1298,17 +1320,12 @@ where all indices are taken modulo $N$. In matrix form, the periodicity introduc
     \end{pmatrix}
     \label{eq:matrice-cyclique}
 \end{equation}
-This system is no longer strictly tridiagonal, but it still solves in $\mathcal{O}(N)$ thanks to the \textsc{Sherman--Morrison} formula: the matrix $A$ of~\eqref{eq:matrice-cyclique} can be written as a rank-1 correction of an ordinary tridiagonal matrix $T$,
-\begin{equation}
-    A = T + u\,v^{\mathsf{T}}, \qquad
-    u = (\gamma,\, 0,\, \dots,\, 0,\, 1)^{\mathsf{T}}, \qquad
-    v = (1,\, 0,\, \dots,\, 0,\, 1/\gamma)^{\mathsf{T}}
-\end{equation}
-with $\gamma = -4$ (a conventional choice ensuring the good conditioning of $T$).
 
 \subsection{Solving the Cyclic System}
 
-\paragraph{Sherman--Morrison decomposition and the Thomas algorithm:} The system~\eqref{eq:matrice-cyclique} is not tridiagonal because of the two corner coefficients $A_{0,N-1} = A_{N-1,0} = 1$. We write it as a rank-1 perturbation of an ordinary tridiagonal matrix $T$:
+%\paragraph{Sherman--Morrison decomposition and the Thomas algorithm:} 
+
+The system~\eqref{eq:matrice-cyclique} is not tridiagonal, but it still solves in $\mathcal{O}(N)$ thanks to the \textsc{Sherman--Morrison} formula~\cite{numerical_recipes}. Let $A$ be the cyclic matrix on the left side of system~\eqref{eq:matrice-cyclique}, this matrix $A$ is, indeed, not strictly tridiagonal because of its two corner coefficients $A_{0,N-1} = A_{N-1,0} = 1$. To avoid a costly full matrix inversion, we write $A$ as a rank-1 perturbation of an ordinary, strictly tridiagonal matrix $T$ according to~\cite{numerical_recipes}:
 \begin{equation}
     A = T + u\,v^{\mathsf{T}} \qquad
     u = \begin{pmatrix} \gamma \\ 0 \\ \vdots \\ 0 \\ 1 \end{pmatrix} \qquad
@@ -1316,7 +1333,7 @@ with $\gamma = -4$ (a conventional choice ensuring the good conditioning of $T$)
     \qquad \gamma = -4
     \label{eq:sherman-morrison-setup}
 \end{equation}
-where $\gamma$ is a free parameter chosen so that $T$ stays well conditioned (here $\gamma = -4$, the opposite of the running diagonal term). The product $u\,v^{\mathsf{T}}$ modifies only the four corners of the matrix:
+where $\gamma$ is a free parameter chosen so that $T$ stays well conditioned, here $\gamma = -4$, the opposite of the running diagonal term. The product $u\,v^{\mathsf{T}}$ modifies only the four corners of the matrix:
 \begin{equation}
     (u\,v^{\mathsf{T}})_{0,0} = \gamma, \quad
     (u\,v^{\mathsf{T}})_{0,N-1} = \gamma/\gamma = 1, \quad
@@ -1340,9 +1357,11 @@ and sub/super-diagonals all equal to~1 (interior indices). The Sherman--Morrison
     y'' = z - \frac{v^{\mathsf{T}} z}{1 + v^{\mathsf{T}} w}\; w
     \label{eq:sherman-morrison-solution}
 \end{equation}
-where, given the sparse form of $v$, the dot product reduces to $v^{\mathsf{T}} z = z_0 + z_{N-1}/\gamma$ (and likewise for $v^{\mathsf{T}} w$): only the head and tail components of the vectors matter, and no matrix is ever formed explicitly.\\
+where, given the sparse form of $v$, the dot product reduces to $v^{\mathsf{T}} z = z_0 + z_{N-1}/\gamma$ (and likewise for $v^{\mathsf{T}} w$): only the head and tail components of the vectors matter, and no matrix is ever formed explicitly.
 
-Each of the two tridiagonal systems $Tz=d$ and $Tw=u$ is solved by the \emph{Thomas algorithm}, a variant of Gaussian elimination specialized for tridiagonal matrices, of complexity $\mathcal{O}(N)$ (instead of $\mathcal{O}(N^3)$ for a general inversion). For a generic system $T x = r$ with diagonal $T_{i,i}$ and unit sub/super-diagonals, the algorithm runs in two passes:
+Each of the two tridiagonal systems $Tz = d$ and $Tw = u$ is solved by the Thomas algorithm (or Tridiagonal Matrix Algorithm, TDMA)~\cite{burden_faires}, a variant of Gaussian elimination specialized for tridiagonal matrices, of complexity $\mathcal{O}(N)$ (instead of $\mathcal{O}(N^3)$ for a general inversion). 
+
+For a generic system $T x = r$ with diagonal $T_{i,i}$ and unit sub/super-diagonals, the algorithm runs in two passes:
 
 \begin{enumerate}
     \item \textbf{Forward sweep (elimination):} we eliminate the sub-diagonal row by row, substituting the pivot of the previous row into each equation. We initialize
@@ -1685,6 +1704,10 @@ End of the internship!
 
 \bibitem{minmax_m78ar05} MINMAX TECHNOLOGY CO., LTD., "MINMAX M78AR05-1 --- Switching Regulator (7805 Pin-Compatible), Datasheet," 2018. URL: \url{https://www.minmax.com.tw/products.php?func=p_detail&p_id=94}.
 
+\bibitem{numerical_recipes} W. H. PRESS, S. A. TEUKOLSKY, W. T. VETTERLING and B. P. FLANNERY, "Numerical Recipes: The Art of Scientific Computing" 3rd ed., Cambridge University Press, 2007, sec. 2.7.1--2.7.2 (Sherman-Morrison and Cyclic Tridiagonal Systems), pp. 77--79.
+
+\bibitem{burden_faires} R. L. BURDEN and J. D. FAIRES, "Numerical Analysis" 9th ed., Brooks/Cole, Cengage Learning, 2010, sec. 6.6 (Special Types of Matrices), pp. 398--409.
+
 \end{thebibliography}
 
 \vspace{-0.5cm}
@@ -1693,7 +1716,7 @@ End of the internship!
 \addcontentsline{toc}{section}{Sitography}
 
 \begin{thebibliography}{99}
-\setcounter{enumiv}{11} % Resume numbering at [11]
+\setcounter{enumiv}{13} % Resume numbering at [11]
 
 \vspace{-0.5cm}
 
