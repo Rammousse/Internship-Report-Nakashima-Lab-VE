@@ -547,11 +547,18 @@ Initial single-motor tests with minimal wiring successfully validated basic comm
 \label{fig:premier_circuit}
 \end{figure}
 
-Despite this topology, the bus experienced an $80\%$ packet loss, causing severe motion instability. The problem could be a signal reflection in an unterminated differential bus. To achieve impedance matching and absorb these reflections, 120,$\Omega$ termination resistors~\cite{dynamixel_x_manual} were installed at both ends of the transmission line (at the AtomS3R base and the terminal motor). This hardware correction successfully eliminated signal interference, reducing packet loss to $0\%$ and enabling stable, synchronized motor control at 80\,Hz.
+Despite this topology, the bus experienced an $80\%$ packet loss, causing severe motion instability. The problem could be a signal reflection in an unterminated differential bus so to achieve impedance matching and absorb these reflections, 120\,$\Omega$ termination resistors~\cite{dynamixel_x_manual} were installed at both ends of the transmission line (at the AtomS3R base and the terminal motor). While this hardware correction successfully eliminated signal interference, attempting to scale the control frequency exposed a critical bottleneck, as illustrated in the figure~\ref{fig:first_bad_result}, commanding the motors at 90\,Hz led a real control rate capped at only 73.8\,Hz. Furthermore, the actuator exhibited severe tracking latency, with the physical position significantly lagging behind the commanded trajectory. Such degraded responsiveness and time stretching are entirely incompatible with the precision required for hydrodynamic pool experiments.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{graphiques/First_result_bad_control_ID_4.png}
+\caption{Command versus actual position of the right shoulder at a 90\,Hz setpoint.}
+\label{fig:first_bad_result}
+\end{figure}
 
 To achieve the 200\,Hz control frequency target, the bus throughput needed to reach at least 1 Mbps. However, initial tests revealed a physical transmission cap at 115200 bps, beyond which the microcontroller failed to detect the motors. This limitation did not originate from the SP3485 transceiver~\cite{sp3485}, which supports up to 10 Mbps, but rather from the automatic direction circuit of the \textit{Atomic RS485} base~\cite{m5stack_atomic485}.
 
-Because the Dynamixel bus operates in half-duplex (a single A/B wire pair for both directions), the transceiver must constantly switch between transmit and receive modes via its Driver Enable (DE) pin, but the \textit{Atomic RS485} base does not expose this pin, relying instead on an internal automatic circuit to guess the data direction. While functional at low speeds (where a single bit lasts roughly 8.7 µs), this automatic switching is too slow for a 1 Mbps throughput (where a bit lasts $\approx 1$ µs). Consequently, the circuit fails to release the line fast enough, masking the start of the motor's \textit{Status Packet} reply. This turnaround latency previously required a deliberately high \textit{Return Delay Time} ($\approx 500$ µs)~\cite{dynamixel_x_manual}, a workaround incompatible with high-frequency control loops.
+Because the Dynamixel bus operates in half-duplex, a single A/B wire pair for both directions, the transceiver must constantly switch between transmit and receive modes via its Driver Enable (DE) pin, but the \textit{Atomic RS485} base does not expose this pin, relying instead on an internal automatic circuit to guess the data direction. While functional at low speeds, where a single bit lasts roughly 8.7 µs, this automatic switching is too slow for a 1 Mbps throughput, where a bit lasts $\approx 1$ µs. Consequently, the circuit fails to release the line fast enough, masking the start of the motor's \textit{Status Packet} reply. This turnaround latency previously required a deliberately high \textit{Return Delay Time} ($\approx 500$ µs)~\cite{dynamixel_x_manual}, a workaround incompatible with high-frequency control loops.
 
 \begin{figure}[H]
     \centering
@@ -581,14 +588,16 @@ Because the Dynamixel bus operates in half-duplex (a single A/B wire pair for bo
 
 Resolving this bottleneck required replacing the \textit{Atomic RS485} base with a custom hardware solution where the DE direction pin is explicitly driven by the microcontroller. To implement this, the two new components shown in Figure~\ref{fig:composants} were acquired. First, the architecture relies on a 3.3\,V RS-485 transceiver board with an exposed DE pin (MAX3485-type~\cite{max3485}). Furthermore, because the original base internally handled power regulation, this modification required adding a dedicated 12–16\,V to 5\,V step-down converter, implemented here with a compact MP2307 module~\cite{mp2307}.
 
-On the software side, the PlatformIO bus driver was updated to leverage the hardware RS-485 half-duplex mode of the ESP32-S3's UART~\cite{esp32s3_uart}. By linking the transceiver's DE pin to the UART controller's RTS pin, the transmit/receive direction is toggled automatically in direct synchronization with the last transmitted stop bit. This eliminates software latency and frees the bus in under a microsecond, reliably supporting baud rates of 1 Mbps and up to 3 Mbps. This explicit direction control allows the motors' \textit{Return Delay Time} to be minimized, securing the high-frequency control loop and laying the groundwork for the final main board architecture.
+On the software side, the PlatformIO bus driver was updated to leverage the hardware RS-485 half-duplex mode of the ESP32-S3's UART~\cite{esp32s3_uart}. By linking the transceiver's DE pin to the UART controller's RTS pin, the transmit/receive direction is toggled automatically in direct synchronization with the last transmitted stop bit, which allows to eliminate software latency and frees the bus in under a microsecond, reliably supporting baud rates of 1 Mbps and up to 3 Mbps. This explicit direction control allows the motors' \textit{Return Delay Time} to be minimized, securing the high-frequency control loop and laying the groundwork for the final main board architecture.
 
 
 \subsection{New Main Board and Configuration}
 
-When the components arrived, I assembled the new control board. Its three active elements showing in the figure~\ref{fig:composants} are the AtomS3R microcontroller~\cite{m5stack_atoms3r}, the RS-485 transceiver module with an accessible direction pin, and the DC-DC step-down converter supplying the logic power.
+When the components arrived, I assembled the new control board with the three active elements showing in the figure~\ref{fig:composants}, the AtomS3R microcontroller~\cite{m5stack_atoms3r}, the RS-485 transceiver module with an accessible direction pin, and the DC-DC step-down converter supplying the logic power.
 
-To make this new circuit safe, the power architecture was carefully split into a power stage and a logic stage. A 16\,V power line, straight from the generator, supplies the Dynamixel motors, it is also fed into the DC-DC step-down converter (a compact module recognizable by its inductor marked "4R7", based on the MP2307~\cite{mp2307}), which turns it into a stable 5\,V for the AtomS3R. The logic stage of the MAX3485 module is powered at 3.3\,V directly from the AtomS3R, to keep the signal levels perfectly aligned. Finally, all the grounds (GND) of the generator, the converter, the AtomS3R and the MAX3485 were tied together for a strict common ground, with no reference drift.
+\newpage
+
+Above all, this new architecture made it possible, for the first time, to test the \emph{real} motors of the robot. In fact, the SWUMANOID is driven by three families of XW-series Dynamixel servomotors (waterproof, IP68 rating), spread across the body according to their torque needs presented in the figure~\ref{fig:swumanoid_map}: XW540-T140-R and XW540-T260-R~\cite{dynamixel_xw540t140,dynamixel_xw540t260} for the most heavily loaded joints, and XW430-T200-R~\cite{dynamixel_xw430t200} for the distal joints, all these motors are waterproof.
 
 \begin{figure}[H]
     \centering
@@ -616,27 +625,25 @@ To make this new circuit safe, the power architecture was carefully split into a
     \label{fig:swumanoid_map}
 \end{figure}
 
-Above all, this new architecture made it possible, for the first time, to test the \emph{real} motors of the robot. In fact, the SWUMANOID is driven by three families of XW-series Dynamixel servomotors (waterproof, IP68 rating), spread across the body according to their torque needs (Figure~\ref{fig:swumanoid_map}): XW540-T140-R and XW540-T260-R~\cite{dynamixel_xw540t140,dynamixel_xw540t260} for the most heavily loaded joints, and XW430-T200-R~\cite{dynamixel_xw430t200} for the distal joints, all these motors are waterproof.
-
 So, to validate the hardware architecture under representative conditions, I built a test circuit combining the new components with a cluster of five \emph{real} Dynamixel motors from the robot with two XW430-T200-R, two XW540-T260-R and one XW540-T140-R. Each was given the ID matching its actual function in the SWUMANOID, so the bench faithfully reproduces a subset of the robot rather than an arbitrary assembly. The XW540-T140-R thus corresponds to a \textbf{shoulder joint}, whose behavior gets a detailed analysis in the results section. Unlike the first bench, limited to substitute motors, this configuration uses far more powerful and extremely responsive, they allow much better command tracking.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{schemas/schema_5_moteurs_haut_baudrate.png}
+    \includegraphics[width=0.9\textwidth]{schemas/schema_5_moteurs_haut_baudrate.png}
     \caption{New control circuit tested on the five XW motors.}
     \label{fig:circuit_test}
 \end{figure}
 
-Within this circuit showed in the figure~\ref{fig:circuit_test}, the ESP32-S3 architecture allows flexible pin routing. I configured the communication lines as follows, in line with the embedded bus driver:
+To make this new circuit safe, the power architecture was split into a power stage and a logic stage. A 16\,V power line, straight from the generator, supplies the Dynamixel motors, it is also fed into the DC-DC step-down converter, a compact module recognizable by its inductor marked "4R7", based on the MP2307~\cite{mp2307}, which turns it into a stable 5\,V for the AtomS3R. The logic stage of the MAX3485 module is powered at 3.3\,V directly from the AtomS3R, to keep the signal levels perfectly aligned. Finally, all the grounds (GND) of the generator, the converter, the AtomS3R and the MAX3485 were tied together for a strict common ground, with no reference drift. Within this circuit showed in the figure~\ref{fig:circuit_test}, the ESP32-S3 architecture allows flexible pin routing. I configured the communication lines as follows, in line with the embedded bus driver:
 \begin{itemize}
     \item the \textbf{DI} pin (\textit{Driver Input}, data to transmit) of the MAX3485 is connected to the microcontroller's \textbf{TX} output, on GPIO \textbf{G6}.
     \item the \textbf{RO} pin (\textit{Receiver Output}, received data) is connected to the \textbf{RX} input, on GPIO \textbf{G5}.
     \item the \textbf{DE/RE} direction pins (\textit{Enable}) are tied together and driven by a free GPIO (\textbf{G7}), wired to the UART's RTS pin for automatic hardware switching.
 \end{itemize}
 
-Finally, to keep the signal clean at high speed and absorb reflections, the RS-485 bus was secured, as on the first bench, with two 120\,$\Omega$ termination resistors. This board finally comes with the software change anticipated above. In the \texttt{drivers/motor\_bus} driver, opening the hardware UART is now completed by enabling the ESP32-S3's RS-485 half-duplex mode~\cite{esp32s3_uart}, tying the RTS pin (here G7) to the transceiver's DE/RE direction. The bus throughput, set centrally in \texttt{firmware\_config.h}, is raised from 3\,Mbps toward the high-speed target, and each motor's \textit{Return Delay Time} is reduced accordingly. The protocol layer (Dynamixel~2.0 frames, CRC-16, \texttt{SyncWrite}/\texttt{SyncRead}), already validated on the first bench, stays unchanged.
+Finally, to keep the signal clean at high speed and absorb reflections, the RS-485 bus was secured, as on the first bench, with two 120\,$\Omega$ termination resistors. This board finally comes with the software change anticipated above. In the \texttt{drivers/motor\_bus} driver, opening the hardware UART is now completed by enabling the ESP32-S3's RS-485 half-duplex mode~\cite{esp32s3_uart}, tying the RTS pin (here G7) to the transceiver's DE/RE direction. The bus throughput, set centrally in \texttt{firmware\_config.h}, is raised from 3\,Mbps toward the high-speed target, and each motor's \textit{Return Delay Time} is reduced accordingly. For the protocol layer, Dynamixel~2.0 frames, CRC-16, \texttt{SyncWrite}/\texttt{SyncRead}, already validated on the first bench, it stays unchanged.
 
-So the five-motor bench proved the electronics were sound but it was still a loose prototype, a handful of modules held together by jumper wires, and that is a problem. On a desk it works fine but inside the robot it does not. The MP2307 converter turned out to be simply too tall for the small waterproof box that lives in the SWUMANOID's head, and it would not go in no matter how I placed it.
+So the five-motor bench proved the electronics were sound but it was still a loose prototype, modules held together by jumper wires whixh is a problem. On a desk it works fine but inside the robot it does not because the MP2307 converter turned out to be simply too tall for the small waterproof box that lives in the SWUMANOID's head, and it would not go in no matter how I placed it.
 
 So I ordered two smaller parts shown in the figure~\ref{fig:new_components}. The first is a MINMAX M78AR05 step-down module, a tiny drop-in replacement for the bulky MP2307 that still delivers the same clean 5\,V rail~\cite{minmax_m78ar05}. The second is a compact soldering PCB, small enough to rest on the floor of the inner case.
 
@@ -659,7 +666,7 @@ So I ordered two smaller parts shown in the figure~\ref{fig:new_components}. The
     \label{fig:new_components}
 \end{figure}
 
-Then, we moved the whole circuit off the breadboard and onto that PCB. The AtomS3R, the MAX3485, the little converter and the termination resistors were all soldered down and wired point to point, so nothing can pop loose when the lid is closed. The board came out small, flat and sturdy. It drops straight into the waterproof case, which in turn slots into the head we can see in figure~\ref{fig:final_board}.
+Then, we moved the whole circuit off the breadboard and onto that PCB. The AtomS3R, the MAX3485, the little converter and the termination resistors were all soldered down and wired point to point, so nothing can pop loose when the lid is closed and the board came out small, flat and sturdy. It drops straight into the waterproof case, which in turn slots into the head we can see in figure~\ref{fig:final_board}.
 
 \begin{figure}[H]
     \centering
@@ -691,18 +698,18 @@ This represents the final state of the controller as a single soldered board sec
 
 \subsection{Results at High Baud Rate}
 
-With this new assembly, taking back control of the EN pin, the transmit/receive switch happens with no latency at all. I was able to raise the baud rate to \textbf{3 Mbps} with perfect motor detection and zero packet loss. Freeing up this bandwidth drastically cuts the bus occupancy time, so the cost of polling one motor, which reached 3 to 4\,ms on the slow, auto-direction bus (previous section), collapses here to the hundred-microsecond scale. This reduction, combined with the lower \textit{Return Delay Time} now allowed by explicit direction control, is what finally makes a high-frequency control loop reachable.
+With this new assembly, taking back control of the EN pin, the transmit/receive switch happens with no latency at all. I was able to raise the baud rate to \textbf{3 Mbps} with perfect motor detection and zero packet loss. Freeing up this bandwidth reduces the bus occupancy time, so the cost of polling one motor, which reached 3 to 4\,ms on the slow, auto-direction bus (previous section), collapses here to the hundred-microsecond scale. This reduction, combined with the lower \textit{Return Delay Time} now allowed by explicit direction control, is what finally makes a high-frequency control loop reachable.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{graphiques/202607241639_ID_4_200Hz.png}
-    \caption{Comparison of the command and the actual position of the right shoulder.}
+    \includegraphics[width=0.7\textwidth]{graphiques/202607241639_ID_4_200Hz.png}
+    \caption{Comparison of the command and the actual position of the right shoulder (200\,Hz).}
     \label{fig:graph_200hz}
 \end{figure}
 
 As the figure \ref{fig:graph_200hz} shows, the running system behaves excellently. We reach a real frequency of \textbf{190.7 Hz} for a 200.0 Hz setpoint. Above all, unlike the old iterations where trajectory tracking was catastrophic, the measured positions (in orange) now sit perfectly on top of the command sent (in blue). The robot finally has an ultra-responsive control loop, which is essential for the next developments on the swimming dynamics.
 
-With tracking validated, it remained to quantify the price of telemetry on the loop rate and as established earlier, reading states with \texttt{SyncRead} is sequential on a \textit{half-duplex} bus, in fact, after a single broadcast instruction, the polled motors answer one after another~\cite{dynamixel_x_manual}. The bus occupancy per read therefore grows with the number of logged motors $N$. To isolate this factor, I ran a campaign where \emph{all} the selected motors are polled \emph{every $K = 3$ frames} (a single \texttt{SyncRead} pass per read), varying only their number $N$, from 1 to 5, with the setpoint held at 200\,Hz.
+With tracking validated, it remained to quantify the price of telemetry on the loop rate and as established earlier, reading states with \texttt{SyncRead} is sequential on a \textit{half-duplex} bus, in fact, after a single broadcast instruction, the polled motors answer one after another~\cite{dynamixel_x_manual}. The bus occupancy per read therefore grows with the number of logged motors $N$. So to isolate this factor, I ran a campaign where \emph{all} the selected motors are polled \emph{every $K = 3$ frames} (a single \texttt{SyncRead} pass per read), varying only their number $N$, from 1 to 5, with the setpoint held at 200\,Hz.
 
 \iffalse
 \begin{figure}[H]
@@ -710,13 +717,13 @@ With tracking validated, it remained to quantify the price of telemetry on the l
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{graphiques/log_1mot_200Hz.png}
         \caption{$N = 1$ motor $\rightarrow$ 191.6 Hz.}
-        \label{fig:sweep1}
+        \label{fig:ssweep1}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{graphiques/log_3mot_200Hz.png}
         \caption{$N = 3$ motors $\rightarrow$ 189.5 Hz.}
-        \label{fig:sweep3}
+        \label{fig:ssweep3}
     \end{subfigure}
     \caption{Effect of the number of logged motors $N$ on control frequency for 1 and 3 motors (200\,Hz and $K = 3$ frames).}
     \label{fig:sweep_motors_part1}
@@ -727,13 +734,13 @@ With tracking validated, it remained to quantify the price of telemetry on the l
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{graphiques/log_4mot_200Hz.png}
         \caption{$N = 4$ motors $\rightarrow$ 187.7 Hz.}
-        \label{fig:sweep4}
+        \label{fig:ssweep4}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{graphiques/log_5mot_200Hz.png}
         \caption{$N = 5$ motors $\rightarrow$ 172.8 Hz.}
-        \label{fig:sweep5}
+        \label{fig:ssweep5}
     \end{subfigure}
     \caption{Effect of the number of logged motors $N$ on control frequency for 4 and 5 motors (200\,Hz and $K = 3$ frames).}
     \label{fig:sweep_motors_part2}
@@ -770,10 +777,12 @@ With tracking validated, it remained to quantify the price of telemetry on the l
     \label{fig:sweep_motors}
 \end{figure}
 
+
 \vspace{-0.2cm}
 
 As we can see in the figure~\ref{fig:sweep_motors}, the control frequency drops from 191.6\,Hz with a single motor to 172.8\,Hz with five, with a particularly sharp fall at the fifth. So the \emph{tracking} stays excellent in every case and only the loop \emph{rate} is affected, not the command/position fidelity. Looking at this result we can wonder if this degradation is an inevitable price of logging, or does it appear only in a particular regime. To settle it, I reran the exact same campaign at lower setpoint rates, at 36, 72 and 100\,Hz :
 
+\iffalse
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.48\textwidth}
@@ -818,9 +827,9 @@ As we can see in the figure~\ref{fig:sweep_motors}, the control frequency drops 
     \caption{Sweep of the number of logged motors at 100 Hz.}
     \label{fig:highfreq}
 \end{figure}
+\fi
 
 
-\iffalse
 \begin{figure}[H]
     \centering
     % Première ligne : 36 Hz
@@ -875,10 +884,10 @@ As we can see in the figure~\ref{fig:sweep_motors}, the control frequency drops 
     \caption{Sweep of the number of logged motors at different frequencies.}
     \label{fig:motor_logging_sweep}
 \end{figure}
-\fi
 
 
-As we can see in figure~\ref{fig:lowfreq} and in the table~\ref{tab:matrix}, \textbf{at low frequency, the number of logged motors has no measurable effect on the control frequency}. At 36\,Hz, the five configurations all give 35.9--36.0\,Hz, at 100\,Hz, they stay grouped around 96\,Hz, whether we log one motor or five, this clearly shows that the problem occurs primarily at high frequencies.
+
+As we can see in figure~\ref{fig:motor_logging_sweep} and in the table~\ref{tab:matrix}, \textbf{at low frequency, the number of logged motors has no measurable effect on the control frequency}. At 36\,Hz, the five configurations all give 35.9--36.0\,Hz, at 100\,Hz, they stay grouped around 96\,Hz, whether we log one motor or five, this clearly shows that the problem occurs primarily at high frequencies.
 
 \begin{table}[H]
 \centering
@@ -1068,7 +1077,7 @@ Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first ra
     \begin{subfigure}[b]{0.48\textwidth}
         \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_3f.png}
         \caption{21 motors $\rightarrow$ 69.3 Hz (real cycle 2.60\,s).}
-        \label{fig:swum_21_3f}
+        \label{fig:sswum_21_3f}
     \end{subfigure}
     \caption{Tests of the number of logged motors on the SWUMANOID, 100\,Hz, commanded cycle 2.05\,s, sampling every 3 frames.}
     \label{fig:swum_scaling}
@@ -1131,7 +1140,7 @@ With 21 motors logged every 6 frames, the $\approx 90$\,Hz rate is satisfying, b
     \begin{subfigure}[b]{0.48\textwidth}
         \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f_cmd1p80.png}
         \caption{Commanded cycle 1.80\,s $\rightarrow$ real cycle \textbf{2.00\,s} (89.8 Hz).}
-        \label{fig:swum_best}
+        \label{fig:sswum_best}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.48\textwidth}
