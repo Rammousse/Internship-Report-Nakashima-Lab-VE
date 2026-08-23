@@ -529,6 +529,7 @@ Even in this worst case, the buffer needs only $\approx 32.54 \text{ kB}$ of RAM
 
 
 \section{Motor Tests and Main Board Configuration}
+\label{sec:motors_board_configuration}
 
 \subsection{Building a First Circuit and the Need for New Components}
 
@@ -1014,11 +1015,7 @@ Finally, moving to high throughput does more than improve tracking, in fact, it 
 
 \subsection{Test on the SWUMANOID}
 
-With the time-budget model established and validated on the five-motor bench, it remained to test it on the full robot, under real operating conditions. So I carried the campaign onto the SWUMANOID itself and its 21 motors, with a double goal: to check that the laws found earlier carry over, and above all to \emph{determine experimentally the optimal parameter set} for the future swimming experiments.
-
-All these tests were run at a setpoint rate of 100\,Hz and this choice follows directly from the budget model of the previous section. At 200\,Hz, the per-frame budget is only $T_c = 5$\,ms: it barely covers the background load and saturates as soon as more than four motors are logged, unusable for monitoring the whole body. Going down to 36 or 72\,Hz, on the other hand, would waste control bandwidth that is essential for the fine detail of the swimming dynamics. 100\,Hz offers the best compromise: its $T_c = 10$\,ms budget is wide enough to absorb the reading of many motors without collapsing the rate, while keeping a high control frequency. The measurements below confirm it, which is why it was kept as the reference rate.
-
-Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first raised the number of logged motors progressively (Figure~\ref{fig:swum_scaling_part1} and \ref{fig:swum_scaling_part2}). Up to six motors, logging is essentially \emph{free}: the real frequency stays capped at $\approx 96$\,Hz (95.9--96.2\,Hz), that is, at the background deficit alone, independent of $N$, already identified. The read fits entirely within the 10\,ms margin. It was even possible to log all \textbf{21 motors} at once, the telemetry of the whole body in a single run, a particularly satisfying result. However, at that number and with such tight sampling (every 3 frames), reading the 21 sequential responses overflows the budget by a wide margin: the rate collapses to 69.3\,Hz and the real cycle time stretches to 2.60\,s (Figure~\ref{fig:swum_21_3f}). Finally the whole body is recorded, but at the price of a loop far too slow.
+With the time-budget model established and validated on the five-motor bench, it remained to test it on the full robot, under real operating conditions. So I carried the campaign into the SWUMANOID itself and its 21 motors to check that the laws found earlier carry over, and to \emph{determine experimentally the optimal parameter set} for the future swimming experiments. As shown in the previous section, logging at 200\,Hz causes saturation when recording multiple motors, while frequencies of 36 or 72\,Hz waste control bandwidth. So 100\,Hz offers the best compromise since its $T_c = 10$\,ms budget is wide enough to absorb the reading of many motors without collapsing the rate, while keeping a high control frequency. So keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first raised the number of logged motors progressively as we can see in the figure~\ref{fig:swum_scaling_part1} and \ref{fig:swum_scaling_part2} :
 
 \begin{figure}[H]
     \centering
@@ -1031,7 +1028,7 @@ Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first ra
         \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_3mot_3f.png}
         \caption{3 motors $\rightarrow$ 96.2 Hz.}
     \end{subfigure}
-    \caption{Tests of the number of logged motors on the SWUMANOID (1 and 3 motors), 100\,Hz, commanded cycle 2.05\,s, sampling every 3 frames.}
+    \caption{Tests of the number of logged motors on the SWUMANOID (1 and 3 motors)}
     \label{fig:swum_scaling_part1}
 \end{figure}
 
@@ -1047,7 +1044,7 @@ Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first ra
         \caption{21 motors $\rightarrow$ 69.3 Hz (real cycle 2.60\,s).}
         \label{fig:swum_21_3f}
     \end{subfigure}
-    \caption{Tests of the number of logged motors on the SWUMANOID (6 and 21 motors), 100\,Hz, commanded cycle 2.05\,s, sampling every 3 frames.}
+    \caption{Tests of the number of logged motors on the SWUMANOID (6 and 21 motors)}
     \label{fig:swum_scaling_part2}
 \end{figure}
 
@@ -1080,7 +1077,11 @@ Keeping 100\,Hz, a cycle time of 2.05\,s and sampling every 3 frames, I first ra
 \end{figure}
 \fi
 
-With the whole body loggable but the loop too slow, the natural lever, already anticipated by the model, is to \emph{reduce the frequency of the reads} rather than their content. So I raised the sampling interval from 3 to 6 frames, spacing out the \texttt{SyncRead} passes to give the bus more time between two queries. The effect is spectacular (Figure~\ref{fig:swum_interval}): at 21 motors, the rate climbs from 69.3\,Hz back up to \textbf{89.9\,Hz}, and at 11 motors it even returns to the background ceiling ($\approx 96$\,Hz). Quantitatively, the amortized read overhead per frame drops from $\approx 4.4$\,ms (at 3 frames) to $\approx 1.1$\,ms (at 6 frames): a reduction that beats the factor of two expected from simply doubling the interval, since the wider spacing also gives the bus a recovery time that lightens the cost of each read. Doubling the sampling interval thus restores most of the rate while keeping full coverage of the 21 motors.
+As we can see in the graph, up to six motors, logging is essentially \emph{free}, the real frequency stays capped at $\approx 96$\,Hz, that is, at the background deficit alone, independent of $N$, already identified. The read fits entirely within the 10\,ms margin. It was even possible to log all \textbf{21 motors} at once, the telemetry of the whole body in a single run, a really satisfying result. However, at that number and with such tight sampling (every 3 frames), reading the 21 sequential responses overflows the budget by a wide margin, in fact, the rate collapses to 69.3\,Hz and the real cycle time stretches to 2.60\,s, as shown in figure~\ref{fig:swum_21_3f}. Finally the whole body is recorded, but at the price of a loop far too slow.
+
+
+
+While logging the entire body is possible, it makes the control loop too slow. The most logical solution, already anticipated by the model, is to \emph{reduce the frequency of the reads} rather than limit their content. So I raised the sampling interval from 3 to 6 frames, spacing out the \texttt{SyncRead} passes to give the bus more time between two queries. The result is presented in the figure~\ref{fig:swum_interval}:
 
 \begin{figure}[H]
     \centering
@@ -1097,14 +1098,17 @@ With the whole body loggable but the loop too slow, the natural lever, already a
     \label{fig:swum_interval}
 \end{figure}
 
-With 21 motors logged every 6 frames, the $\approx 90$\,Hz rate is satisfying, but the real cycle time stays above the setpoint (2.28\,s for a commanded 2.05\,s). The reason is direct: the trajectory holds a fixed number of frames ($\text{cycle} \times \text{rate}$), and replaying them at 90\,Hz instead of 100\,Hz mechanically stretches the duration by a factor of $100/90 \approx 1.11$. So, as a last step, I varied only the commanded cycle time, with every other parameter frozen (Figure~\ref{fig:swum_cycle_part1}, Figure~\ref{fig:swum_cycle_part2}  and Table~\ref{tab:swum_cycle}). The observation confirms the model: the real frequency stays \emph{invariant}, locked around 89--90\,Hz, whatever the cycle time. The cycle time changes only the total duration, not the rate. It then becomes possible to \emph{pre-compensate} for the known deficit: to obtain the physically targeted swimming cycle of 2.0\,s, we just command a shorter cycle of 1.80\,s, which, stretched by the $1/0.90$ factor, gives exactly 2.00\,s real. This is the best operating point.
+At 21 motors, the rate climbs from 69.3\,Hz back up to \textbf{89.9\,Hz}, and at 11 motors it even returns to the background ceiling ($\approx 96$\,Hz). Quantitatively, the amortized read overhead per frame drops from $\approx 4.4$\,ms (at 3 frames) to $\approx 1.1$\,ms (at 6 frames), this reduction beats the factor of two expected from simply doubling the interval, since the wider spacing also gives the bus a recovery time that lightens the cost of each read. Doubling the sampling interval thus restores most of the rate while keeping full coverage of the 21 motors.
 
+With 21 motors logged every 6 frames, the $\approx 90$\,Hz rate is satisfying, but the real cycle time stays above the setpoint (2.28\,s for a commanded 2.05\,s). Indeed, the trajectory holds a fixed number of frames ($\text{cycle} \times \text{rate}$), and replaying them at 90\,Hz instead of 100\,Hz mechanically stretches the duration by a factor of $100/90 \approx 1.11$. So, as a last step, I varied only the commanded cycle time, with every other parameter frozen presentend in the figure~\ref{fig:swum_cycle} and the table~\ref{tab:swum_cycle} below :
+
+\iffalse
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.48\textwidth}
         \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f_cmd1p80.png}
         \caption{Commanded cycle 1.80\,s $\rightarrow$ real cycle \textbf{2.00\,s} (89.8 Hz).}
-        \label{fig:swum_best}
+        \label{fig:sswum_best}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.48\textwidth}
@@ -1129,36 +1133,39 @@ With 21 motors logged every 6 frames, the $\approx 90$\,Hz rate is satisfying, b
     \caption{Sweep of the commanded cycle time (2.00\,s and 2.05\,s), 100\,Hz, 21 motors, sampling every 6 frames.}
     \label{fig:swum_cycle_part2}
 \end{figure}
+\fi
 
-\iffalse
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.48\textwidth}
         \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f_cmd1p80.png}
-        \caption{Commanded cycle 1.80\,s $\rightarrow$ real cycle \textbf{2.00\,s} (89.8 Hz).}
-        \label{fig:sswum_best}
+        \caption{Commanded cycle 1.80\,s $\rightarrow$ real \textbf{2.00\,s} (89.8 Hz).}
+        \label{fig:swum_best}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.48\textwidth}
         \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f_cmd1p90.png}
-        \caption{Commanded cycle 1.90\,s $\rightarrow$ real cycle 2.14\,s (88.9 Hz).}
+        \caption{Commanded cycle 1.90\,s $\rightarrow$ real 2.14\,s (88.9 Hz).}
     \end{subfigure}
 
     \vspace{0.35em}
     \begin{subfigure}[b]{0.48\textwidth}
         \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f_cmd2p00.png}
-        \caption{Commanded cycle 2.00\,s $\rightarrow$ real cycle 2.24\,s (89.1 Hz).}
+        \caption{Commanded cycle 2.00\,s $\rightarrow$ real 2.24\,s (89.1 Hz).}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.48\textwidth}
         \includegraphics[width=\textwidth]{graphiques_swumanoid/swum_21mot_6f.png}
-        \caption{Commanded cycle 2.05\,s $\rightarrow$ real cycle 2.28\,s (89.9 Hz).}
+        \caption{Commanded cycle 2.05\,s $\rightarrow$ real 2.28\,s (89.9 Hz).}
     \end{subfigure}
     \caption{Sweep of the commanded cycle time (100\,Hz, 21 motors, sampling every 6 frames).}
     \label{fig:swum_cycle}
 \end{figure}
 
-\fi
+
+
+ The observation confirms that the real frequency stays \emph{invariant}, locked around 89--90\,Hz, whatever the cycle time. The cycle time changes only the total duration, not the rate and it then becomes possible to \emph{pre-compensate} for the known deficit. To obtain the physically targeted swimming cycle of 2.0\,s, we just command a shorter cycle of 1.80\,s, which, stretched by the $1/0.90$ factor, gives exactly 2.00\,s real. This is the best operating point.
+
 
 \begin{table}[H]
 \centering
@@ -1174,26 +1181,26 @@ Commanded cycle (s) & Frames & Real cycle (s) & $f_{\text{real}}$ (Hz) \\ \hline
 \label{tab:swum_cycle}
 \end{table}
 
-The real frequency is invariant ($\approx 89.4 \pm 0.5$\,Hz) and the real cycle follows $\text{real cycle} = \text{commanded cycle} \times 100/f_{\text{real}}$. The 1.80\,s setting hits the target swimming cycle of 2.00\,s.
+The real frequency is invariant ($\approx 89.4 \pm 0.5$\,Hz) and $\text{real cycle} = \text{commanded cycle} \times 100/f_{\text{real}}$. Furthermore, we can see in the table that the 1.80\,s setting hits the target swimming cycle of 2.00\,s.
 
-\paragraph{Optimal parameters retained :} This campaign on the real robot fully confirms the budget model and leads to a parameter set determined end to end by experiment, which will serve as the reference for the future swimming experiments:
+ This campaign on the real robot fully confirms the budget model and leads to a parameter set determined end to end by experiment, which will serve as the reference for the future swimming experiments. 
+ 
+ \paragraph{Optimal parameters retained :}
 \begin{itemize}
-    \item \textbf{Command rate}: 100\,Hz (best budget/bandwidth compromise).
+    \item \textbf{Command rate}: 100\,Hz.
     \item \textbf{Logged motors}: 21, the whole body.
     \item \textbf{Sampling interval}: 6 frames.
-    \item \textbf{Commanded cycle time}: 1.80\,s, giving a real swimming cycle of 2.00\,s.
+    \item \textbf{Commanded cycle time}: 1.80\,s.
     \item \textbf{Real control rate}: $\approx 90$\,Hz.
 \end{itemize}
-This setting brings together the three goals: full telemetry of the 21 joints, a high and faithful control rate, and a real swimming cycle exactly matching the physical setpoint. It is the operating base on which the swimming-dynamics analyses that follow will rely.
+This setting brings together the full telemetry of the 21 joints, a high and faithful control rate, and a real swimming cycle exactly matching the physical setpoint. It is the operating base on which the swimming-dynamics analyses that follow will rely.
 
 
 \section{Motion Kinematics and Interpolation}
 \label{sec:method_interpolation}
-\subsection{The Problem}
+\subsection{The Problem of Previous System}
 
-Although the new hardware configuration (described in Section 3) allows control at 200 Hz, its development took significant time to design and deliver. During that wait, the pool tests had to run on the old configuration, capped at very low frequencies (between 36 Hz and 50 Hz) because of a low baud rate.
-
-Far from being wasted time, this temporary hardware constraint made us aware of some flaws in our algorithm. At 200 Hz, the density of command points hides the mathematical interpolation errors. At 36 Hz, though, the trajectory's continuity defects become large and physically destructive for the robot's swimming.
+Although the new hardware configuration (described in Section \ref{sec:motors_board_configuration}) allows control at 200 Hz, its development took significant time to design and deliver. During that wait, the pool tests had to run on the old configuration, capped at very low frequencies (between 36 Hz and 50 Hz) because of a low baud rate. But far from being wasted time, this temporary hardware constraint made us aware of some flaws in our algorithm. At 200 Hz, the density of command points hides the mathematical interpolation errors. At 36 Hz, though, the trajectory's continuity defects become large and physically destructive for the robot's swimming.
 
 The linear interpolation originally used to connect the motion frames guaranteed position continuity, but not the continuity of its derivatives: at each node, the commanded velocity changed discontinuously (theoretically infinite acceleration), which produced jerky motion. In particular, during the cyclic playback of a motion, so the repetition of the same file, the last frame usually did not coincide with the first: the loop-back caused a jump in position and velocity, and therefore a mechanical jolt at every cycle start.
 
