@@ -905,21 +905,21 @@ As we can see in figure~\ref{fig:motor_logging_sweep} and in the table~\ref{tab:
 \label{tab:matrix}
 \end{table}
 
-As we can see in the table, even below the degradation threshold, the real frequency stays slightly under the setpoint, 96.2\,Hz for a 100\,Hz target, 68\,Hz for 72\,Hz. This deficit, on the order of a few percent, is also \emph{independent of $N$} (the corresponding columns are flat). It does not come from telemetry, then, but from the incompressible load run on \emph{every} frame, so the broadcast \texttt{SyncWrite}, the command interpolation, the IMU acquisition and servicing the 20\,Hz SSE stream. This background load, which we will write $t_{hk}$, caps the reachable rate regardless of how many motors are read, it should be carefully distinguished from the extra cost, variable in $N$, of the \texttt{SyncRead} read. These two contributions are exactly the two terms of the model that follows.
+As we can see in the table, even below the degradation threshold, the real frequency stays slightly under the setpoint, 96.2\,Hz for a 100\,Hz target, 68\,Hz for 72\,Hz and on the order of a few percent, it is also \emph{independent of $N$} (the corresponding columns are flat). So the problem does not come from telemetry, then, but from the incompressible load run on \emph{every} frame, so the broadcast \texttt{SyncWrite}, the command interpolation, the IMU acquisition and servicing the 20\,Hz SSE stream. This background load, which we will write $t_{hk}$, caps the reachable rate regardless of how many motors are read, it should be distinguished from the extra cost, variable in $N$, of the \texttt{SyncRead} read.
 
-These behaviors, a baseline deficit independent of $N$, degradation in $N$ only at high frequency, are explained by a single model, a \emph{time budget per frame}. The control loop is a fixed-period scheduler targeting $T_c = 1/f_c$. Each frame runs the background load $t_{hk}$ introduced above. Once every $K$ frames, the \texttt{SyncRead} pass of the $N$ motors is added, whose sequential bus occupancy splits into a fixed term and a term proportional to the number of responses:
+These behaviors, a deficit independent of $N$ and a degradation in $N$ only at high frequency, are explained by the \emph{time budget per frame}. The control loop is a fixed-period scheduler targeting $T_c = 1/f_c$, each frame runs the background load $t_{hk}$ introduced above. Once every $K$ frames, the \texttt{SyncRead} pass of the $N$ motors is added, whose sequential bus occupancy splits into a fixed term and a term proportional to the number of responses:
 \begin{equation}
 \tau_{\text{read}}(N) = t_0 + N\, t_m ,
 \label{eq:tauread}
 \end{equation}
-where $t_0$ is the fixed cost (instruction + bus turnaround) and $t_m$ the per-motor cost. The read frame therefore occupies, in total, $R(N) = t_{hk} + \tau_{\text{read}}(N)$. The crucial point is that this read only lengthens the loop \emph{if it overflows the budget} $T_c$. Writing $(x)_+ = \max(0, x)$ for the positive part, the mean control period is:
+where $t_0$ is the fixed cost (instruction + bus turnaround) and $t_m$ the per-motor cost. The read frame therefore occupies, in total, $R(N) = t_{hk} + \tau_{\text{read}}(N)$. The crucial point is that this read only lengthens the loop \emph{if it overflows the budget} $T_c$. So the mean control period is:
 \begin{equation}
 \boxed{\;T_{\text{real}}(N) = T_c + \frac{\bigl(R(N) - T_c\bigr)_+}{K}\;}
 \label{eq:budget}
 \end{equation}
-Degradation therefore appears only beyond a \textbf{threshold frequency} $f^\star(N) = 1/R(N)$, above which the read frame no longer fits within its period:
+Writing $(x)_+ = \max(0, x)$ for the positive part. So the degradation therefore appears only beyond a \textbf{threshold frequency} $f^\star(N) = 1/R(N)$, above which the read frame no longer fits within its period:
 \begin{itemize}
-    \item \textbf{Below-threshold regime} ($T_c > R(N)$, i.e. $f_c < f^\star$): the overflow term is zero, $T_{\text{real}} = T_c$, and the real frequency is \emph{independent of $N$}. This is exactly the regime observed at 36, 72 and 100\,Hz.
+    \item \textbf{Below-threshold regime} ($T_c > R(N)$, i.e. $f_c < f^\star$): the overflow term is zero, $T_{\text{real}} = T_c$, and the real frequency is \emph{independent of $N$}. This is the regime observed at 36, 72 and 100\,Hz.
     \item \textbf{Above-threshold regime} ($T_c < R(N)$): the overflow is positive and grows with $N$, degrading the rate. This is the regime observed at 200\,Hz.
 \end{itemize}
 
@@ -928,9 +928,7 @@ In the overflow regime, equation~\eqref{eq:budget} reduces to a \emph{linear law
 T_{\text{real}}(N) \approx 5.18 + 0.036\,N \quad [\text{ms}] \qquad (f_c = 200~\text{Hz}).
 \label{eq:fit}
 \end{equation}
-The match with the measurements (Table~\ref{tab:model}) is remarkable: for $N = 1$ to $4$, the gap between predicted and measured frequency never exceeds $0.3$\,Hz, which \textbf{experimentally validates} the model. The fitted value $t_m \approx 0.11$\,ms/motor also confirms the benefit of the high throughput: the per-motor cost has been divided by a factor of $\sim 30$ compared with the 3--4\,ms of the auto-direction bus. Finally, the model predicts thresholds $f^\star$ between $\approx 136$\,Hz ($N = 5$) and $\approx 177$\,Hz ($N = 1$), so it becomes immediately clear why 100\,Hz ($T_c = 10$\,ms) stays completely safe from degradation for any $N$, while 200\,Hz ($T_c = 5$\,ms) falls squarely into the overflow regime.
-
-\vspace{1cm}
+The match with the measurements (Table~\ref{tab:model}) is remarkable: for $N = 1$ to $4$, the gap between predicted and measured frequency never exceeds $0.3$\,Hz, which \textbf{experimentally validates} the model. The fitted value $t_m \approx 0.11$\,ms/motor also confirms the benefit of the high throughput, in fact, the per-motor cost has been divided by a factor of $\sim 30$ compared with the 3--4\,ms of the previous auto-direction bus. Finally, the model predicts thresholds $f^\star$ between $\approx 136$\,Hz ($N = 5$) and $\approx 177$\,Hz ($N = 1$), so it becomes immediately clear why 100\,Hz ($T_c = 10$\,ms) stays completely safe from degradation for any $N$, while 200\,Hz ($T_c = 5$\,ms) falls squarely into the overflow regime.
 
 \begin{table}[H]
 \centering
@@ -947,11 +945,9 @@ $N$ & $f_{\text{real}}$ measured (Hz) & $f_{\text{real}}$ predicted (Hz) & Gap (
 \label{tab:model}
 \end{table}
 
-The point $N = 5$ at 200\,Hz (last row of Table~\ref{tab:model}) breaks sharply with the linear law: the frequency falls to 172.8\,Hz where the model expected $\approx 186.7$\,Hz. Beyond four motors, the read-frame occupancy grows faster than the $N\,t_m$ term: the read is no longer just overflowing, it saturates, with the cost of the most distal motor in the chain (the ankle) approaching the timeout threshold. In practice, this gives a direct operating rule: to stay in the degradation-free regime, just pick the rate and the number of logged motors so that $R(N) \le T_c$. At 200\,Hz we therefore keep $N \le 4$ per read group (less than $7\%$ loss), while at 100\,Hz or below, logging is "free" regardless of the number of motors. This is exactly what justifies, \textit{a posteriori}, the combination of spatial selection and round-robin reading introduced earlier: it keeps $N$ small \emph{per read cycle} while still monitoring a large number of joints.
+The point $N = 5$ at 200\,Hz, the last row of table~\ref{tab:model}, breaks the linear law because the frequency falls to 172.8\,Hz where the model expected $\approx 186.7$\,Hz. Beyond four motors, the read-frame occupancy grows faster than the $N\,t_m$ term so the read is no longer just overflowing, it saturates, with the cost of the most distal motor in the chain approaching the timeout threshold. In practice, to stay in the degradation-free regime, just pick the rate and the number of logged motors so that $R(N) \le T_c$. At 200\,Hz we therefore keep $N \le 4$ per read group (less than $7\%$ loss), while at 100\,Hz or below, logging is "free" regardless of the number of motors. This is what justifies the combination of spatial selection and round-robin reading introduced earlier so it keeps $N$ small \emph{per read cycle} while still monitoring a large number of joints.
 
-\vspace{0.5cm}
-
-The last check needed in the degraded regime (200\,Hz, $N = 5$) was the rate loss stationary, or does it worsen over time (accumulated delay, drift)? So I replayed this configuration while progressively lengthening the recording duration, from $\sim$7\,s to $\sim$47\,s (Figure~\ref{fig:cumulatif_part1} and Figure~\ref{fig:cumulatif_part2}). The result is unambiguous: across all these runs, the control frequency stays confined to $173.8 \pm 0.6$\,Hz, a spread under $1\%$ and \emph{independent} of the duration. The degradation is therefore not cumulative: it is a fixed extra cost per read cycle, re-evaluated identically at each pass, with no memory or accumulated delay, and the command/position tracking repeats identically from one swimming cycle to the next. This confirms the time-invariance of model~\eqref{eq:budget}, where $f_{\text{real}}$ depends only on $N$, $K$ and $f_c$, not on the elapsed time.
+The last check needed in the degraded regime (200\,Hz, $N = 5$) was the rate loss stationary. So I replayed this configuration while progressively lengthening the recording duration, from $\sim$7\,s to $\sim$47\,s (figure~\ref{fig:cumulatif_part1} and figure~\ref{fig:cumulatif_part2}). Finally across all these runs, the control frequency stays confined to $173.8 \pm 0.6$\,Hz, a spread under $1\%$ and \emph{independent} of the duration. We can conclude that the degradation is therefore not cumulative, it is a fixed extra cost per read cycle, re-evaluated identically at each pass, with no memory or accumulated delay, and the command/position tracking repeats identically from one swimming cycle to the next. This confirms the time-invariance of model~\eqref{eq:budget}, where $f_{\text{real}}$ depends only on $N$, $K$ and $f_c$, not on the elapsed time.
 
 \begin{figure}[H]
     \centering
@@ -1012,7 +1008,7 @@ The last check needed in the degraded regime (200\,Hz, $N = 5$) was the rate los
 
 \fi
 
-In the end, moving to high throughput does more than improve tracking : it makes the system's timing behavior \emph{predictable and controllable}. The real control frequency is described by a simple, validated model, with two regimes separated by the threshold $f^\star$, so it can be fixed deterministically at the design stage of a test, by choosing the (rate, number of logged motors) pair knowingly. This predictability is a sound basis for the later study of the swimming dynamics, where fine control of the command rate is essential.
+Finally, moving to high throughput does more than improve tracking, in fact, it makes the system's timing behavior \emph{predictable and controllable}. The real control frequency is described by a simple, validated model, with two regimes separated by the threshold $f^\star$, so it can be fixed deterministically at the design stage of a test, by choosing the rate and the number of logged motors. This predictability is nice for the later study of the swimming dynamics to have fine control of the command rate.
 
 
 
