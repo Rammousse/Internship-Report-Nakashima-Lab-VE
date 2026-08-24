@@ -239,9 +239,7 @@ In the same spirit, I added a three-dimensional avatar of the robot to the inter
     \label{fig:imu_avatar}
 \end{figure}
 
-I also added the ability to upload motion files straight from SWAM (.dat), converted on the fly during upload, to make the web control interface fully standalone, smooth and secure. The trajectory conversion logic runs entirely on the client (JavaScript) and I ported it from the MATLAB code used previously and provided by Iroki-san.
-
-More precisely, when parsing the \texttt{.dat} file in JavaScript, each joint angle is converted to Dynamixel ticks using the affine formula of the X-series motors~\cite{dynamixel_x_manual}:
+I also added the ability to upload motion files straight from SWAM (.dat), converted on the fly during upload, to make the web control interface fully standalone, smooth and secure. The trajectory conversion logic runs entirely on the client (JavaScript) and I ported it from the MATLAB code used previously and provided by M. Yanadori. More precisely, when parsing the \texttt{.dat} file in JavaScript, each joint angle is converted to Dynamixel ticks using the affine formula of the X-series motors~\cite{dynamixel_x_manual}:
 \begin{equation}
 tick = \frac{\theta_{deg}+180}{360} \times 4095
 \end{equation}
