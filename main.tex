@@ -45,82 +45,70 @@
 \clearpage
 \pagestyle{empty} % No page number for the abstract
 \section*{Abstract}
-\textit{This report presents the work conducted during my M1 internship at the Nakashima Laboratory, focusing on the SWUMANOID humanoid swimming robot project. The objective of my internship was to improve and modernize the command and control system of the robot. To achieve this, I designed and assembled a new main control board and developed a web interface. This new architecture allows the operator to communicate directly with the robot and provides real-time access to all critical telemetry and status information during pool experiments. Successfully implementing these upgrades required including the seamless integration of motion files, the mathematical interpolation of joint trajectories for smooth swimming, the optimization of the communication baud rate, and the extraction of spatial orientation angles using IMU data. Ultimately, these contributions have established a reliable and responsive experimental platform for future hydrodynamic research.
+\textit{This report presents the work conducted during my M1 internship at the Nakashima Laboratory, focusing on the SWUMANOID humanoid swimming robot project. The previous control architecture severely limited hydrodynamic experiments due to a low control frequency, unstable communications, and mechanical jerks. The objective of my internship was to improve and modernize the command and control system of the robot to overcome these limits. To achieve this, the approach included the assembly of a custom AtomS3R-based main board, the implementation of a deterministic 3\,Mbps RS-485 communication bus, and the development of a web interface for real-time telemetry supervision. Furthermore, the kinematic pipeline has been rebuilt using periodic cubic spline interpolation to mathematically guarantee smooth, jerk-free joint trajectories. This was paired with an inertial processing chain that fuses raw IMU data via a quaternion-based complementary filter, compensates for the sensor's mechanical tilt through rigid frame transformations, and extracts stable Euler angles for real-time 3D spatial tracking. This new architecture allows the operator to communicate directly with the robot and provides real-time access to all critical telemetry and status information during pool experiments. Moreover, experimental validation demonstrated the total elimination of signal interference and mechanical jolts. Finally, the system now achieves a highly stable control rate of approximately 90\,Hz while simultaneously acquiring the full telemetry of its 21 joints via an optimized scheduling model. Ultimately, these hardware and software contributions have established a reliable, fault-tolerant, and highly responsive experimental platform ready for future advanced biomechanical research.
 }
 
 % ==========================================
 %             TABLE OF CONTENTS
 % ==========================================
 \clearpage
-\setcounter{page}{1}
-\pagestyle{plain} % Resume page numbering
-\tabledematieres  % Command already present in your .cls file!
+\pagestyle{empty} % Désactive toute numérotation sur les pages du sommaire
+{\let\thispagestyle\empty \tabledematieres} % Empêche LaTeX de forcer un numéro sur la 1ère page du sommaire
 
 % ==========================================
 %             BODY OF THE REPORT
 % ==========================================
+\clearpage
+\setcounter{page}{1} % Le compteur démarre à 1 ici
+\pagestyle{plain}    % Affiche UNIQUEMENT le numéro de page en bas au centre
+
 \section{Introduction}
 
 \subsection{The Nakashima Laboratory}
 
-The Nakashima Laboratory, led by Professor Motomu Nakashima, belongs to the \textbf{Institute of Science Tokyo}. This university represents the merger of the \textit{Tokyo Institute of Technology} (Tokyo Tech) and the \textit{Tokyo Medical and Dental University} (TMDU) \cite{isct2024merger}. The result is an institution built around "convergence science", bringing together engineering, advanced technology, biology and medicine \cite{isct2024merger}. The Nakashima Laboratory sits right at that crossroads, where fundamental mechanics meets human physiology.
+The Nakashima Laboratory, led by Professor Motomu Nakashima, belongs to the \textbf{Institute of Science Tokyo}. This university represents the merger of the \textit{Tokyo Institute of Technology} and the \textit{Tokyo Medical and Dental University} \cite{isct2024merger}. The result is an institution built around "convergence science", bringing together engineering, advanced technology, biology and medicine \cite{isct2024merger}. The Nakashima Laboratory sits right at that crossroads, where fundamental mechanics meets human physiology.
 
-Its focus is biomechanics and sports engineering. The main goal is to use robotics and computation to better understand, simulate and reproduce the complex dynamics of the human body \cite{nakashimalab_website}. Working from mathematical models and detailed simulations, such as the SWUM model, which couples rigid-body dynamics with unsteady fluid forces \cite{nakashima2007swum}, the team analyzes and optimizes human motion in different environments. The work spans several scales, from the macroscopic study of fluid forces to a fine musculo-skeletal analysis of physical effort, as shown in the figure \ref{fig:simulations_labo}.
-
-
-
-The research is not limited to water, in fact it reaches into many everyday and athletic biomechanical problems for example the body dynamics during wheelchair tennis matches, the study of mass distribution and body management during sleep, and the modeling of effort in redundant human tasks.
+Its focus is biomechanics and sports engineering. The main goal is to use robotics and computation to better understand, simulate and reproduce the complex dynamics of the human body \cite{nakashimalab_website}. Working from mathematical models and detailed simulations, such as the SWUM model, which couples rigid-body dynamics with unsteady fluid forces \cite{nakashima2007swum}, the team analyzes and optimizes human motion in different environments. The work spans several scales, from the macroscopic study of fluid forces to a fine musculo-skeletal analysis of physical effort, as shown in the figure \ref{fig:simulations_labo}. \label{text:simulations_labo}
 
 
 
-To test these models in the real world, the lab designs and runs a wide range of experimental devices, shown in the figure \ref{fig:prototypes_labo}. They range from wearable measurement systems for the upper limbs to biomimetic aquatic robots, and up to a full swimming humanoid robot, the SWUMANOID. This robot grew out of years of \textit{Bio-Robotics} research, and it is the project I joined.
+The research is not limited to water, in fact it reaches into many athletic biomechanical problems for example the body dynamics during wheelchair tennis matches, the study of mass distribution and body management during sleep, and the modeling of effort in redundant human tasks.
+
+
+
+To test these models in the real world, the lab designs and runs a wide range of experimental devices, shown in the figure \ref{fig:prototypes_labo}. They range from wearable measurement systems for the upper limbs to biomimetic aquatic robots, and up to a full swimming humanoid robot, the SWUMANOID. This robot grew out of years of \textit{Bio-Robotics} research, and it is the project I joined. \label{text:prototypes_labo}
 
 
 \subsection{The SWUMANOID Project}
 
 When I arrived at the lab, I joined the SWUMANOID project. Its purpose is to get around the limits of swimming experiments run on real humans. In fact, measuring unsteady fluid forces on an actual swimmer is hard because the subject gets tired, sensors are difficult to mount reliably underwater, and no human can repeat a stroke with perfect consistency \cite{chung2014swimming} \cite{nakashima2016realization}.
 
-To sidestep all of this, the lab built a complete swimming humanoid robot that acts as a stand-in experimental platform \cite{chung2014swimming} \cite{nakashima2016realization}. The base model was designed by reproducing the body geometry of an elite swimmer captured in a 3D scan \cite{chung2013free} \cite{nakashima2016realization}. Figure \ref{fig:modeles_3d} shows this biomimetic approach, comparing the 3D mesh of a real swimmer with the CAD shell adapted for the SWUMANOID.
+To sidestep all of this, the lab built a complete swimming humanoid robot that acts as a stand-in experimental platform \cite{chung2014swimming} \cite{nakashima2016realization}. The base model was designed by reproducing the body geometry of an elite swimmer captured in a 3D scan \cite{chung2013free} \cite{nakashima2016realization}. Figure \ref{fig:modeles_3d} \label{text:modeles_3d} shows this biomimetic approach, comparing the 3D mesh of a real swimmer with the CAD shell adapted for the SWUMANOID.
 
 
 
-When I joined the project, it was in a transition phase, the previous SWUMANOID, which swam perfectly, had suffered irreversible damage and could no longer be used. A brand-new version, starting from scratch, had been launched only a few months earlier. This full rebuild covered the structure, the skeleton, the 3D printing of every part, new motors, and a rewrite of the motion files. Figure \ref{fig:robot_moteurs} shows this new iteration and the layout of its actuation.
+When I joined the project, it was in a transition phase, the previous SWUMANOID, which swam perfectly, had suffered irreversible damage and could no longer be used. A brand-new version, starting from scratch, had been launched only a few months earlier. This full rebuild covered the structure, the skeleton, the 3D printing of every part, new motors, and a rewrite of the motion files. Figure \ref{fig:robot_moteurs} \label{text:robot_moteurs} shows this new iteration and the layout of its actuation.
 
 
 
-Building the robot at full human size is not practical, so its scale was reduced. The robot is roughly 50\% of the real swimmer's size \cite{chung2013free} \cite{chung2014swimming}, but the arms of the new version were modeled at 60\% of full scale to make place for the new motors. These motors are more powerful and, above all, IP68-certified, so fully waterproof, which removes any risk of short circuits. The robot weighs about 7.3 kg, close to 10\% of an adult swimmer's weight, in line with the earlier models that weighed between 7.12 kg and 7.4 kg \cite{chung2013free} \cite{nakashima2016realization}.
+Building the robot at full human size is not practical, so its scale was reduced. The robot is roughly 50\% of the real swimmer's size \cite{chung2013free} \cite{chung2014swimming}, but the arms of the new version were modeled at 60\% of full scale to make place for the new motors. These motors are more powerful and, above all, IP68-certified, so fully waterproof, which removes any risk of short circuits. The robot weighs about 7.3 kg, close to 10\% of an adult swimmer's weight, in line with the earlier models \cite{chung2013free} \cite{nakashima2016realization}.
 
-I joined the SWUMANOID team, a group of three where I work alongside my two supervisors, M. YANADORI and M. NAGATA. When I arrived, the team was finishing tests on new coatings for the 3D-printed parts and before that, the parts filled up with water, which changed the buoyancy and sank the robot. The multi-layer waterproofing process, detailed in the figure \ref{fig:waterproof}, was a decisive step for the integrity of the whole system. We settled on urethane as the coating for the PLA+ printed parts which solved the water infiltration problem, and the robot could finally float the moment I arrived, which had not been the case before.
+I joined the SWUMANOID team, a group of three where I work alongside my two supervisors, M. YANADORI and M. NAGATA. When I arrived, the team was finishing tests on new coatings for the 3D-printed parts and before that, the parts filled up with water, which changed the buoyancy and sank the robot. The multi-layer waterproofing process, detailed in the figure \ref{fig:waterproof}, was a decisive step for the integrity of the whole system. We settled on urethane as the coating for the PLA+ printed parts which solved the water infiltration problem, and the robot could finally float the moment I arrived, which had not been the case before. \label{text:waterproof}
 
+Within our trio, the work is clearly split. My two supervisors focus on the theoretical and analytical study of motion, their research relies on the simulation software \textit{SWUMSUIT}. M. NAGATA works on steering the robot during swimming, with a particular focus on the dynamics of turning strokes. M. YANADORI studies the torques generated by the robot's joints while swimming, using the current drawn by the motors. These studies advance the lab's research into how muscular limits influence swimming speed and propulsive efficiency~\cite{nakashima2012optimizing}.
 
+The SWUMSUIT interface can extract swimming data such as swimming speed, propulsive efficiency, and joint torques \cite{swumsuit2005}. Built to implement the SWUM (Swimming Human Model) simulation model, it computes the absolute motion of the human body in water by solving the equations of motion of a rigid body, and estimates the fluid forces acting on the body from the input geometry and joint motions \cite{swumsuit2005}. The numerical results let us visualize the swimming dynamics and read the vector distribution of the propulsive forces, as the captures in the figure \ref{fig:swumsuit_sim} show. \label{text:swumsuit_sim}
 
-Within our trio, the work is clearly split. My two supervisors focus on the theoretical and analytical study of motion, their research relies on the simulation software \textit{SWUMSUIT}. Built to implement the SWUM (Swimming Human Model) simulation model, it computes the absolute motion of the human body in water by solving the equations of motion of a rigid body, and estimates the fluid forces acting on the body from the input geometry and joint motions \cite{swumsuit2005}. The numerical results let us visualize the swimming dynamics and read the vector distribution of the propulsive forces, as the captures in the figure \ref{fig:swumsuit_sim} show.
-
-
-
-The SWUMSUIT interface can extract swimming data such as swimming speed, propulsive efficiency, and joint torques \cite{swumsuit2005}.
-\begin{itemize}
-    \item \textbf{NAGATA} works on steering the robot during swimming, with a particular focus on the dynamics of turning strokes.
-    \item \textbf{YANADORI} studies the torques generated by the robot's joints while swimming, using the current drawn by the motors.
-\end{itemize}
-
-\vspace{0.2cm}
-
-These studies extend the lab's long line of research into how muscular constraints, such as maximum joint torque, shape the speed and propulsive efficiency of human swimmers \cite{nakashima2012optimizing}.
 
 For me, my studies focus on the low-level and hardware control of the SWUMANOID. This split makes us efficient for improving the project. We run roughly two pool experiments a week and during those sessions we test different strokes and iterate on the control parameters, hunting for the settings that lead to a clean, natural swim.
 
-To keep up that pace and make our deployments safe, we have a room dedicated entirely to the project. There, the robot hangs in the air on a bar, which lets us send commands and check the joint motions dry before any immersion. As in the figure \ref{fig:air_test} shows, this suspension rig isolates the actuators so we can debug their mechanical response on its own. This is also where we manage all the hardware and 3D-print new parts to keep improving the robot.
+To keep up that pace and make our deployments safe, we have a room dedicated entirely to the project. There, the robot hangs in the air on a bar, which lets us send commands and check the joint motions dry before any immersion. As in the figure \ref{fig:air_test} shows, this suspension rig isolates the actuators so we can debug their mechanical response on its own. This is also where we manage all the hardware and 3D-print new parts to keep improving the robot. \label{text:air_test}
 
 
 
 \subsection{Assigned Missions}
 
-The overall goal of the SWUMANOID project is to provide an experimental platform that reproduces the complex motions of a human swimmer, so we can quantify the unsteady fluid forces generated during swimming \cite{chung2013free, chung2014swimming}. For the measured data to be scientifically usable and comparable to human swimming, the robot has to swim smoothly and without interruption \cite{chung2013free, chung2014swimming}. This is where my work fits with embedded software development, control theory, and experimental validation in the pool. Within the team, I took charge of developing and optimizing the embedded control system, and of running the physical experiments.
-
-\subsubsection*{Control architecture and kinematics}
-
-When I arrived, the previous system was heavily limited because the control frequency was locked at 72 Hz, the Wi-Fi connection was unstable, and other issues that produced mechanical jerks. So my main technical mission was to design a new software and hardware architecture around a more capable microcontroller, the M5Stack AtomS3R. My tasks here were:
+The overall goal of the SWUMANOID project is to provide an experimental platform that reproduces the complex motions of a human swimmer, so we can quantify the unsteady fluid forces generated during swimming \cite{chung2013free, chung2014swimming}. For the measured data to be scientifically usable and comparable to human swimming, the robot has to swim smoothly and without interruption \cite{chung2013free, chung2014swimming}. This is where my work fits with embedded software development, control theory, and experimental validation in the pool. Within the team, I took charge of developing and optimizing the embedded control system, and of running the physical experiments. When I arrived, the previous system was heavily limited because the control frequency was locked at 72 Hz, the Wi-Fi connection was unstable, and other issues that produced mechanical jerks. So my main technical mission was to design a new software and hardware architecture around a more capable microcontroller, the M5Stack AtomS3R. My tasks here were:
 
 \begin{itemize}
     \item \textbf{High-frequency control and hardware interface:} Rethink the communication with the Dynamixel motors' RS-485 bus by studying how the motors react to commands and to design a circuit able to reach a \textit{baudrate} of 3 Mbps. That gives an ultra-fast 200 Hz control loop for all 21 motors, and motion smooth enough not to disturb the fluid dynamics during swimming \cite{chung2014swimming}.
@@ -129,19 +117,29 @@ When I arrived, the previous system was heavily limited because the control freq
     \item \textbf{User Interface (UI) development:} Build a standalone HTML/JavaScript web page to interact with the robot easily. It secures the Wi-Fi connection, converts the motion files directly, and lets the operator tune the control parameters remotely on the fly.
 \end{itemize}
 
+%\iffalse
+
+%\subsubsection*{Running and optimizing the pool experiments}
+
+\vspace{-0.2cm}
+
+To test the software that we developped during each week we put the robot in a real environment, so the second half of my mission plays out in the field, during pool experiments, about twice a week. These sessions follow a strict protocol to yield reliable data.The figure \ref{fig:pool_experiment} shows the robot going into the water during one of these tests. \label{text:pool_experiment}
 
 
-\subsubsection*{Running and optimizing the pool experiments}
 
-To test the software that we developped during each week we put the robot in a real environment, so the second half of my mission plays out in the field, during pool experiments, about twice a week. These sessions follow a strict protocol to yield reliable data.The figure \ref{fig:pool_experiment} shows the robot going into the water during one of these tests.
-
-
-
-My job during these tests is to help the team prepare in the lab by weighing the robot, assembling the waterproof modules when needed, 3D-print parts for repairs or upgrades, and carrying the equipment to the pool. Once there, we set up the measurement system. That means laying measuring tapes along the water line to estimate the robot's spatial speed \cite{chung2013free}, configuring the control PC, and installing the tracking camera we need for the later kinematic analysis \cite{chung2013free}.
+My job during these tests is to help the team prepare in the lab by weighing the robot, assembling the waterproof modules when needed, 3D-print parts for repairs or upgrades, and carrying the equipment to the pool. Once there, we set up the measurement system. That means laying measuring tapes along the water line to estimate the robot's spatial speed, configuring the control PC, and installing the tracking camera we need for the later kinematic analysis as we can see in the setup environment representation in the figure \ref{fig:dispositif_experiment}. \label{text:dispositif_experiment}
 
 
 
 During the experiment itself, I operate the SWUMANOID from the web interface I built. I swap trajectory files after each run and adjust control parameters like the sampling frequency or the stroke cycle time, testing different configurations to find the best trade-off between swimming speed and propulsive efficiency. In practice, these tests confirm the optimization models my supervisors compute in simulation \cite{nakashima2012optimizing}.
+
+%\fi
+
+To conclude this introduction, the remainder of this report details the methodology, hardware design, and software implementation required to upgrade the SWUMANOID's control architecture. The \textbf{Section~\ref{sec:web_interface_sec}} presents the development of the new embedded firmware and the user web interface. It focuses on the migration to the AtomS3R microcontroller, network stability improvements, and the design of an optimized, non-blocking telemetry logging system. 
+
+\textbf{Section~\ref{sec:motors_board_configuration}} focuses on the hardware developments and experimental validations. It details the design of the custom main board, the resolution of RS-485 communication limitations, and the physical testing on the robot's actuators to secure a high-frequency control loop. 
+
+The report concludes with a summary of the outcomes and the platform's readiness for future hydrodynamic research. Finally, the \textbf{Annexes} provide the in-depth mathematical and theoretical frameworks supporting this engineering work. They detail the periodic cubic spline interpolation algorithm developed to guarantee smooth, jerk-free joint trajectories, as well as the IMU signal processing chain, with the quaternion-based complementary filter and rigid frame transformations required to track the robot's 3D spatial orientation.
 
 
 \section{Building a Web Interface for Control}
@@ -158,7 +156,7 @@ Originally, the software was built around a finite state machine driven by \text
 
 During the migration, I replaced this UDP stack with \textbf{HTTP}-based communication. The operator's commands (bus scan, load a motion, play, stop, E-STOP) now travel as simple HTTP requests, while the system state, motor telemetry and IMU data are streamed continuously to the browser over a one-way \textit{Server-Sent Events} (SSE) flow, which holds up far better against the small Wi-Fi dropouts.
 
-The original firmware had been written and validated for the \textbf{M5Stack AtomS3} development board \cite{m5stack_atoms3}. But to meet the new requirements, the hardware had just been upgraded to the \textbf{M5Stack AtomS3R} \cite{m5stack_atoms3r} right before I arrived, we can see the two microcontrollers in the figure \ref{fig:m5stack_comparison}.
+The original firmware had been written and validated for the \textbf{M5Stack AtomS3} development board \cite{m5stack_atoms3}. But to meet the new requirements, the hardware had just been upgraded to the \textbf{M5Stack AtomS3R} \cite{m5stack_atoms3r} right before I arrived, we can see the two microcontrollers in the figure \ref{fig:m5stack_comparison}. \label{text:m5stack_comparison}
 
 
 
@@ -202,7 +200,7 @@ My first technical task, then, was to \textbf{migrate the hardware driver layer}
 \subsection{New Web Architecture}
 The main goal of this second development phase was to fold every control function directly into the user interface, the page that manages the microcontroller, so we could drive the SWUMANOID correctly and easily. Just as important, the interface had to show, in real time, all the information we need to run the experiments well and to understand which factor is limiting us and how to fix it.
 
-The starting point was a minimal supervision console (figure~\ref{fig:evolution_rssi}, left), limited to a raw display of the controller state and a few text commands. It told us nothing about the radio link quality, the robot's actual orientation, or the state of individual actuators, which made any experimental diagnosis painful. So the rework was done incrementally, each iteration adding a measurement instrument aimed at one limiting factor identified during the tests.
+The starting point was a minimal supervision console (figure~\ref{fig:evolution_rssi}, left), limited to a raw display of the controller state and a few text commands. It told us nothing about the radio link quality, the robot's actual orientation, or the state of individual actuators, which made any experimental diagnosis painful. So the rework was done incrementally, each iteration adding a measurement instrument aimed at one limiting factor identified during the tests. 
 
 \begin{figure}[H]
     \centering
@@ -272,7 +270,7 @@ The total payload size (in bytes), noted $S$, depends directly on the number of 
 \begin{equation}
 S(N, F) = 6 + N + 2NF
 \end{equation}
-where $6$ bytes are the fixed header (Version, Number of motors, Number of frames), $N$ bytes hold the motor ID array, and $2NF$ bytes carry the raw trajectory data (each position coded on an unsigned 16-bit integer, so 2 bytes).\\
+where $6$ bytes are the fixed header (Version, Number of motors, Number of frames), $N$ bytes hold the motor ID array, and $2NF$ bytes carry the raw trajectory data (each position coded on an unsigned 16-bit integer, so 2 bytes).
 
 In our setup, the SWUMANOID is driven by $N = 21$ motors. For a trajectory of $F = 144$ frames, the exact network transfer size is:
 \begin{align*}
@@ -310,7 +308,7 @@ To check the integrity of the actuation chain before any motion, I also implemen
     \begin{subfigure}[b]{0.46\textwidth}
         \centering
         \includegraphics[width=\textwidth]{Interfaces/3_scan_motors.png}
-        \caption{\emph{Network \& Scan} panel in the dashboard.}
+        \caption{Network \& Scan panel in the dashboard.}
         \label{fig:scan_panel}
     \end{subfigure}
     \hfill
@@ -436,7 +434,7 @@ Despite this topology, the bus experienced an $80\%$ packet loss, causing severe
 \label{fig:first_bad_result}
 \end{figure}
 
-To achieve the 200\,Hz control frequency target, the bus throughput needed to reach at least 1 Mbps. However, initial tests revealed a physical transmission cap at 115200 bps, beyond which the microcontroller failed to detect the motors. This limitation did not originate from the SP3485 transceiver~\cite{sp3485}, which supports up to 10 Mbps, but rather from the automatic direction circuit of the \textit{Atomic RS485} base~\cite{m5stack_atomic485}.
+To achieve the 200\,Hz control frequency target, the bus throughput needed to reach at least 1 Mbps. However, initial tests revealed a physical transmission cap at 115200 bps, beyond which the microcontroller failed to detect the motors. This limitation did not originate from the SP3485 transceiver~\cite{sp3485}, which supports up to 10 Mbps, but rather from the automatic direction circuit of the \textbf{Atomic RS485} base~\cite{m5stack_atomic485}.
 
 Because the Dynamixel bus operates in half-duplex, a single A/B wire pair for both directions, the transceiver must constantly switch between transmit and receive modes via its Driver Enable (DE) pin, but the \textit{Atomic RS485} base does not expose this pin, relying instead on an internal automatic circuit to guess the data direction. While functional at low speeds, where a single bit lasts roughly 8.7 µs, this automatic switching is too slow for a 1 Mbps throughput, where a bit lasts $\approx 1$ µs. Consequently, the circuit fails to release the line fast enough, masking the start of the motor's \textit{Status Packet} reply. This turnaround latency previously required a deliberately high \textit{Return Delay Time} ($\approx 500$ µs)~\cite{dynamixel_x_manual}, a workaround incompatible with high-frequency control loops.
 
@@ -449,9 +447,9 @@ On the software side, the PlatformIO bus driver was updated to leverage the hard
 
 \subsection{New Main Board and Configuration}
 
-When the components arrived, I assembled the new control board with the three active elements showing in the figure~\ref{fig:composants}, the AtomS3R microcontroller~\cite{m5stack_atoms3r}, the RS-485 transceiver module with an accessible direction pin, and the DC-DC step-down converter supplying the logic power.
+When the components arrived, I assembled the new control board with the three active elements showing in the figure~\ref{fig:composants}, the AtomS3R microcontroller~\cite{m5stack_atoms3r}, the RS-485 transceiver module with an accessible direction pin, and the DC-DC step-down converter supplying the logic power. \label{text:composants}
 
-Above all, this new architecture made it possible, for the first time, to test the \emph{real} motors of the robot. In fact, the SWUMANOID is driven by three families of XW-series Dynamixel servomotors (waterproof, IP68 rating), spread across the body according to their torque needs presented in the figure~\ref{fig:swumanoid_map}: XW540-T140-R and XW540-T260-R~\cite{dynamixel_xw540t140,dynamixel_xw540t260} for the most heavily loaded joints, and XW430-T200-R~\cite{dynamixel_xw430t200} for the distal joints, all these motors are waterproof.
+Above all, this new architecture made it possible, for the first time, to test the \emph{real} motors of the robot. In fact, the SWUMANOID is driven by three families of XW-series Dynamixel servomotors (waterproof, IP68 rating), spread across the body according to their torque needs presented in the figure~\ref{fig:swumanoid_map}: XW540-T140-R and XW540-T260-R~\cite{dynamixel_xw540t140,dynamixel_xw540t260} for the most heavily loaded joints, and XW430-T200-R~\cite{dynamixel_xw430t200} for the distal joints, all these motors are waterproof. \label{text:swumanoid_map}
 
 
 
@@ -475,7 +473,7 @@ Finally, to keep the signal clean at high speed and absorb reflections, the RS-4
 
 So the five-motor bench proved the electronics were sound but it was still a loose prototype, modules held together by jumper wires whixh is a problem. On a desk it works fine but inside the robot it does not because the MP2307 converter turned out to be simply too tall for the small waterproof box that lives in the SWUMANOID's head, and it would not go in no matter how I placed it.
 
-So I ordered two smaller parts shown in the figure~\ref{fig:new_components}. The first is a MINMAX M78AR05 step-down module, a tiny drop-in replacement for the bulky MP2307 that still delivers the same clean 5\,V rail~\cite{minmax_m78ar05}. The second is a compact soldering PCB, small enough to rest on the floor of the inner case.
+So I ordered two smaller parts shown in the figure~\ref{fig:new_components}. The first is a MINMAX M78AR05 step-down module, a tiny drop-in replacement for the bulky MP2307 that still delivers the same clean 5\,V rail~\cite{minmax_m78ar05}. The second is a compact soldering PCB, small enough to rest on the floor of the inner case. \label{text:new_components}
 
 
 
@@ -1126,22 +1124,27 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
 
 \section{Annexes}
 
+\textit{\textbf{Note:} To facilitate navigation, the figures are interactive, you can click on the \textbf{[$\uparrow$]} button at the end of each caption to automatically jump back to the exact paragraph where the figure was discussed.}
+
 \subsection{Figures and Diagrams}
+
+\renewcommand{\thefigure}{A.\arabic{figure}}
+\setcounter{figure}{0}
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.42\textwidth}
+    \begin{subfigure}[b]{0.37\textwidth}
         \centering
         \includegraphics[width=\textwidth]{Introduction/Nakashima_site_1.png}
         \caption{SWUM model with fluid force vectors.}
     \end{subfigure}
     \hfill
-    \begin{subfigure}[b]{0.53\textwidth}
+    \begin{subfigure}[b]{0.48\textwidth}
         \centering
         \includegraphics[width=\textwidth]{Introduction/Nakashima_site_5.png}
         \caption{Musculo-skeletal model of swimming.}
     \end{subfigure}
-    \caption{Simulations used in the laboratory to study body dynamics.}
+    \caption{Simulations used in the laboratory to study body dynamics. \hyperref[text:simulations_labo]{\textbf{[$\uparrow$]}}}
     \label{fig:simulations_labo}
 \end{figure}
 
@@ -1154,18 +1157,18 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
         \caption{Biomechanical measurement device.}
     \end{subfigure}
     \hfill
-    \begin{subfigure}[b]{0.32\textwidth}
+    \begin{subfigure}[b]{0.28\textwidth}
         \centering
         \includegraphics[width=\textwidth]{Introduction/Nakashima_site_4.png}
         \caption{Biomimetic aquatic robot.}
     \end{subfigure}
     \hfill
-    \begin{subfigure}[b]{0.32\textwidth}
+    \begin{subfigure}[b]{0.28\textwidth}
         \centering
         \includegraphics[width=\textwidth]{Introduction/Nakashima_site_2.png}
         \caption{Robotic prototype in a pool.}
     \end{subfigure}
-    \caption{Physical experimental platforms developed by the laboratory \cite{nakashimalab_website}.}
+    \caption{Physical experimental platforms developed by the laboratory \cite{nakashimalab_website}. \hyperref[text:prototypes_labo]{\textbf{[$\uparrow$]}}}
     \label{fig:prototypes_labo}
 \end{figure}
 
@@ -1174,16 +1177,16 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
     \centering
     \begin{subfigure}[b]{0.45\textwidth}
         \centering
-        \includegraphics[height=6cm]{Introduction/Model_3D_real_swimmer.png}
+        \includegraphics[height=5cm]{Introduction/Model_3D_real_swimmer.png}
         \caption{3D scan of the swimmer}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.45\textwidth}
         \centering
-        \includegraphics[height=6cm]{Introduction/SWUMANOID_Model_3D.png}
+        \includegraphics[height=5cm]{Introduction/SWUMANOID_Model_3D.png}
         \caption{3D model adapted for the robot}
     \end{subfigure}
-    \caption{Robot geometry derived from the morphology of an elite swimmer.}
+    \caption{Robot geometry derived from the morphology of an elite swimmer. \hyperref[text:modeles_3d]{\textbf{[$\uparrow$]}}}
     \label{fig:modeles_3d}
 \end{figure}
 
@@ -1200,14 +1203,14 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
         \includegraphics[height=6cm]{Introduction/SWUMANOID_Motors_Ids.png}
         \caption{Motor map and IDs}
     \end{subfigure}
-    \caption{Hardware and kinematic overview of the robot.}
+    \caption{Hardware and kinematic overview of the robot. \hyperref[text:robot_moteurs]{\textbf{[$\uparrow$]}}}
     \label{fig:robot_moteurs}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.75\textwidth]{Introduction/Werproof_method.png}
-    \caption{Waterproofing protocol for the PLA+ parts.}
+    \caption{Waterproofing protocol for the PLA+ parts. \hyperref[text:waterproof]{\textbf{[$\uparrow$]}}}
     \label{fig:waterproof}
 \end{figure}
 
@@ -1224,7 +1227,7 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
         \includegraphics[width=\textwidth]{Introduction/SWAM_simulation_with_force.png}
         \caption{Fluid force vectors (in red)}
     \end{subfigure}
-    \caption{Interface and renders of the \textit{SWUMSUIT} simulation software.}
+    \caption{Interface and renders of the \textit{SWUMSUIT} simulation software. \hyperref[text:swumsuit_sim]{\textbf{[$\uparrow$]}}}
     \label{fig:swumsuit_sim}
 \end{figure}
 
@@ -1232,7 +1235,7 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.6\textwidth]{Introduction/Swumanoid_test_salle_en_l_air.png}
-    \caption{Suspended test rig in the laboratory.}
+    \caption{Suspended test rig in the laboratory. \hyperref[text:air_test]{\textbf{[$\uparrow$]}}}
     \label{fig:air_test}
 \end{figure}
 
@@ -1247,7 +1250,7 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.7\textwidth]{Introduction/SWUMANOID_ready_to_swim_pool_room_experiment.png}
-    \caption{Free-swimming pool experiment with the SWUMANOID.}
+    \caption{Free-swimming pool experiment with the SWUMANOID. \hyperref[text:pool_experiment]{\textbf{[$\uparrow$]}}}
     \label{fig:pool_experiment}
 \end{figure}
 
@@ -1255,7 +1258,7 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.6\textwidth]{Introduction/Salle_experience_dispositif.png}
-    \caption{Layout of the experiment recording setup.}
+    \caption{Layout of the experiment recording setup. \hyperref[text:dispositif_experiment]{\textbf{[$\uparrow$]}}}
     \label{fig:dispositif_experiment}
 \end{figure}
 
@@ -1273,7 +1276,7 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
         \includegraphics[width=\textwidth]{partie2/atoms3r_picture.png}
         \caption{M5Stack AtomS3R}
     \end{subfigure}
-    \caption{Visual and technical comparison of the two microcontrollers.}
+    \caption{Visual and technical comparison of the two microcontrollers. \hyperref[text:m5stack_comparison]{\textbf{[$\uparrow$]}}}
     \label{fig:m5stack_comparison}
 \end{figure}
 
@@ -1299,7 +1302,7 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
         \caption{DC-DC converter (MP2307).}
         \label{fig:comp_buck}
     \end{subfigure}
-    \caption{Components of the new \textit{main board}.}
+    \caption{Components of the new \textit{main board}. \hyperref[text:composants]{\textbf{[$\uparrow$]}}}
     \label{fig:composants}
 \end{figure}
 
@@ -1326,7 +1329,7 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
         \caption{XM-series Dynamixel.}
         \label{fig:motor_xm}
     \end{subfigure}
-    \caption{SWUMANOID motor configuration.}
+    \caption{SWUMANOID motor configuration. \hyperref[text:swumanoid_map]{\textbf{[$\uparrow$]}}}
     \label{fig:swumanoid_map}
 \end{figure}
 
@@ -1346,7 +1349,7 @@ With stable, continuous, and fully monitored swimming cycles now guaranteed, the
         \caption{Compact soldering PCB (ElectroCookie).}
         \label{fig:comp_pcb}
     \end{subfigure}
-    \caption{The two smaller parts chosen to shrink the board down to size.}
+    \caption{The two smaller parts chosen to shrink the board down to size. \hyperref[text:new_components]{\textbf{[$\uparrow$]}}}
     \label{fig:new_components}
 \end{figure}
 
